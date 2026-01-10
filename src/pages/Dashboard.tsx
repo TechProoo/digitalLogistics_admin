@@ -1,0 +1,486 @@
+import Sidebar from "../components/sidebar";
+import { ShipmentDetailsModal } from "../components/shipment/ShipmentDetailsModal";
+import { SHIPMENTS_TABLE_ROWS } from "../data/shipments";
+import {
+  AlertCircle,
+  Package,
+  Clock,
+  Truck,
+  CheckCircle,
+  Search,
+  Filter,
+  MoreVertical,
+} from "lucide-react";
+import { useState } from "react";
+
+const Dashboard = () => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [serviceFilter, setServiceFilter] = useState("all");
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [selectedShipmentId, setSelectedShipmentId] = useState<string | null>(
+    null
+  );
+
+  const stats = [
+    {
+      title: "Total Shipments",
+      value: "8",
+      change: "+12% from last week",
+      icon: Package,
+    },
+    {
+      title: "Pending Requests",
+      value: "1",
+      change: null,
+      icon: Clock,
+    },
+    {
+      title: "In Transit",
+      value: "3",
+      change: null,
+      icon: Truck,
+    },
+    {
+      title: "Delivered",
+      value: "1",
+      change: null,
+      icon: CheckCircle,
+    },
+  ];
+
+  const shipments = SHIPMENTS_TABLE_ROWS;
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "pending":
+        return {
+          bg: "rgba(255, 193, 7, 0.12)",
+          text: "#ffc107",
+          label: "Pending",
+        };
+      case "quoted":
+        return {
+          bg: "rgba(59, 130, 246, 0.12)",
+          text: "#3b82f6",
+          label: "Quoted",
+        };
+      case "accepted":
+        return {
+          bg: "rgba(139, 92, 246, 0.12)",
+          text: "#8b5cf6",
+          label: "Accepted",
+        };
+      case "picked up":
+      case "picked_up":
+        return {
+          bg: "rgba(236, 72, 153, 0.12)",
+          text: "#ec4899",
+          label: "Picked Up",
+        };
+      case "in transit":
+      case "in_transit":
+        return {
+          bg: "rgba(46, 196, 182, 0.12)",
+          text: "var(--accent-teal)",
+          label: "In Transit",
+        };
+      case "delivered":
+        return {
+          bg: "rgba(34, 197, 94, 0.12)",
+          text: "var(--status-success)",
+          label: "Delivered",
+        };
+      case "cancelled":
+        return {
+          bg: "rgba(239, 68, 68, 0.12)",
+          text: "#ef4444",
+          label: "Cancelled",
+        };
+      default:
+        return {
+          bg: "rgba(100, 116, 139, 0.12)",
+          text: "#64748b",
+          label: status,
+        };
+    }
+  };
+
+  const filteredShipments = shipments.filter((shipment) => {
+    const matchesSearch =
+      shipment.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      shipment.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      shipment.phone.includes(searchQuery);
+
+    const matchesStatus =
+      statusFilter === "all" ||
+      shipment.status.toLowerCase() === statusFilter.toLowerCase();
+
+    const matchesService =
+      serviceFilter === "all" ||
+      shipment.service.toLowerCase() === serviceFilter.toLowerCase();
+
+    return matchesSearch && matchesStatus && matchesService;
+  });
+
+  return (
+    <Sidebar>
+      <div className="space-y-8">
+        {/* Header */}
+        <div className="flex justify-between items-start">
+          <div>
+            <h1
+              className="text-4xl font-bold mb-2"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Dashboard Overview
+            </h1>
+            <p style={{ color: "var(--text-secondary)" }}>
+              Manage shipments and track deliveries
+            </p>
+          </div>
+
+          {/* Alert Badge */}
+          <div
+            className="px-4 py-3 rounded-lg border flex items-center gap-2"
+            style={{
+              backgroundColor: "rgba(255, 193, 7, 0.08)",
+              borderColor: "rgba(255, 193, 7, 0.3)",
+            }}
+          >
+            <AlertCircle className="h-5 w-5" style={{ color: "#ffc107" }} />
+            <span style={{ color: "#ffc107" }} className="font-medium">
+              1 pending quote need attention
+            </span>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {stats.map((stat, idx) => {
+            const Icon = stat.icon;
+            return (
+              <div
+                key={idx}
+                className="rounded-xl border p-6 transition-all hover:shadow-lg hover:border-opacity-100"
+                style={{
+                  backgroundColor: "var(--bg-secondary)",
+                  borderColor: "var(--border-medium)",
+                }}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <p
+                      className="text-sm font-medium mb-2"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      {stat.title}
+                    </p>
+                    <h3
+                      className="text-3xl font-bold"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      {stat.value}
+                    </h3>
+                    {stat.change && (
+                      <p
+                        className="text-xs font-medium mt-2"
+                        style={{ color: "var(--status-success)" }}
+                      >
+                        {stat.change}
+                      </p>
+                    )}
+                  </div>
+                  <div
+                    className="h-12 w-12 rounded-lg flex items-center justify-center"
+                    style={{
+                      backgroundColor: "rgba(46, 196, 182, 0.12)",
+                    }}
+                  >
+                    <Icon
+                      className="h-6 w-6"
+                      style={{ color: "var(--accent-teal)" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Recent Shipments */}
+        <div className="space-y-6">
+          <h2
+            className="text-2xl font-bold"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Recent Shipments
+          </h2>
+
+          {/* Search and Filters */}
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Search */}
+            <div
+              className="flex-1 relative rounded-lg border overflow-hidden transition-all focus-within:border-opacity-100"
+              style={{
+                backgroundColor: "var(--bg-secondary)",
+                borderColor: "var(--border-medium)",
+              }}
+            >
+              <Search
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5"
+                style={{ color: "var(--text-secondary)" }}
+              />
+              <input
+                type="text"
+                placeholder="Search by tracking ID, customer name, or phone..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-transparent outline-none"
+                style={{
+                  color: "var(--text-primary)",
+                }}
+              />
+              <style>{`
+                input::placeholder {
+                  color: var(--text-secondary);
+                }
+              `}</style>
+            </div>
+
+            {/* Filter Buttons */}
+            <div className="flex gap-3">
+              {/* Status Filter */}
+              <div className="relative">
+                <button
+                  onClick={() =>
+                    setStatusFilter(statusFilter === "all" ? "pending" : "all")
+                  }
+                  className="flex items-center gap-2 px-4 py-3 rounded-lg border transition-all"
+                  style={{
+                    backgroundColor: "var(--bg-secondary)",
+                    borderColor: "var(--border-medium)",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  <Filter className="h-4 w-4" />
+                  <span>All Statuses</span>
+                </button>
+              </div>
+
+              {/* Service Filter */}
+              <div className="relative">
+                <button
+                  onClick={() =>
+                    setServiceFilter(serviceFilter === "all" ? "air" : "all")
+                  }
+                  className="flex items-center gap-2 px-4 py-3 rounded-lg border transition-all"
+                  style={{
+                    backgroundColor: "var(--bg-secondary)",
+                    borderColor: "var(--border-medium)",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  <span>All Services</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div
+            className="relative overflow-x-auto rounded-xl border"
+            style={{
+              backgroundColor: "var(--bg-secondary)",
+              borderColor: "var(--border-medium)",
+            }}
+          >
+            <table className="w-full text-sm text-left">
+              <thead
+                style={{
+                  backgroundColor: "var(--bg-tertiary)",
+                  borderBottom: "1px solid var(--border-medium)",
+                }}
+              >
+                <tr>
+                  <th
+                    className="px-6 py-4 font-semibold"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Tracking ID
+                  </th>
+                  <th
+                    className="px-6 py-4 font-semibold"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Customer
+                  </th>
+                  <th
+                    className="px-6 py-4 font-semibold"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Phone
+                  </th>
+                  <th
+                    className="px-6 py-4 font-semibold"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Service
+                  </th>
+                  <th
+                    className="px-6 py-4 font-semibold"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Status
+                  </th>
+                  <th
+                    className="px-6 py-4 font-semibold"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Created
+                  </th>
+                  <th
+                    className="px-6 py-4 font-semibold text-center"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredShipments.map((shipment, idx) => {
+                  const statusColor = getStatusColor(shipment.status);
+                  const isEven = idx % 2 === 0;
+                  return (
+                    <tr
+                      key={shipment.id}
+                      className="border-b transition-colors hover:opacity-80"
+                      style={{
+                        backgroundColor: isEven
+                          ? "rgba(46, 196, 182, 0.02)"
+                          : "transparent",
+                        borderColor: "var(--border-medium)",
+                      }}
+                    >
+                      <td
+                        className="px-6 py-4 font-semibold whitespace-nowrap"
+                        style={{ color: "var(--accent-teal)" }}
+                      >
+                        {shipment.id}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div
+                          className="font-semibold head"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          <p className="headr">{shipment.customer}</p>
+                        </div>
+                        <div
+                          className="text-xs"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
+                          {shipment.email}
+                        </div>
+                      </td>
+                      <td
+                        className="px-6 py-4"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        {shipment.phone}
+                      </td>
+                      <td
+                        className="px-6 py-4"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        {shipment.service}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className="inline-block px-3 py-1 rounded-full text-xs font-medium"
+                          style={{
+                            backgroundColor: statusColor.bg,
+                            color: statusColor.text,
+                          }}
+                        >
+                          {statusColor.label}
+                        </span>
+                      </td>
+                      <td
+                        className="px-6 py-4"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        {shipment.created}
+                      </td>
+                      <td className="px-6 py-4 text-center relative">
+                        <button
+                          onClick={() =>
+                            setOpenMenu(
+                              openMenu === shipment.id ? null : shipment.id
+                            )
+                          }
+                          className="p-2 rounded-lg transition-all"
+                          style={{
+                            backgroundColor: "rgba(46, 196, 182, 0.08)",
+                            color: "var(--text-secondary)",
+                            border: "none",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                        {openMenu === shipment.id && (
+                          <div
+                            className="absolute right-0 mt-2 w-44 rounded-lg border shadow-lg z-20 overflow-hidden"
+                            style={{
+                              backgroundColor: "var(--bg-secondary)",
+                              borderColor: "var(--border-medium)",
+                            }}
+                          >
+                            <button
+                              onClick={() => {
+                                setSelectedShipmentId(shipment.id);
+                                setOpenMenu(null);
+                              }}
+                              className="w-full px-4 py-3 text-left text-sm font-medium transition-colors"
+                              style={{
+                                color: "var(--text-primary)",
+                                backgroundColor: "transparent",
+                                border: "none",
+                                cursor: "pointer",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor =
+                                  "rgba(46, 196, 182, 0.08)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor =
+                                  "transparent";
+                              }}
+                            >
+                              View Details
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <ShipmentDetailsModal
+        isOpen={!!selectedShipmentId}
+        onClose={() => setSelectedShipmentId(null)}
+        shipmentId={selectedShipmentId || ""}
+        shipments={shipments}
+        onUpdate={() => {
+          // Refresh shipment data if needed
+        }}
+      />
+    </Sidebar>
+  );
+};
+
+export default Dashboard;
