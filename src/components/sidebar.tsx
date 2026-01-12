@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Home, Package, LogOut, Menu, X, Users } from "lucide-react";
+import { authApi } from "../services/authApi";
 
 // simple className merger
 function cn(...classes: (string | boolean | undefined)[]) {
@@ -13,6 +14,20 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
   const [isLarge, setIsLarge] = useState<boolean>(
     typeof window !== "undefined" ? window.innerWidth >= 1024 : true
   );
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      await authApi.logout();
+    } catch {
+      // ignore; we still want to clear any local UI state
+    } finally {
+      setIsLoggingOut(false);
+      window.location.href = "/";
+    }
+  };
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
@@ -254,7 +269,24 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
                   </div>
                 </div>
               </div>
-              
+
+              <button
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-colors"
+                style={{
+                  borderColor: "var(--border-medium)",
+                  color: isLoggingOut ? "var(--text-secondary)" : "#ef4444",
+                  backgroundColor: isLoggingOut
+                    ? "var(--bg-tertiary)"
+                    : "transparent",
+                  cursor: isLoggingOut ? "not-allowed" : "pointer",
+                  opacity: isLoggingOut ? 0.6 : 1,
+                }}
+              >
+                <LogOut className="h-4 w-4" />
+                {isLoggingOut ? "Logging out..." : "Logout"}
+              </button>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3">
@@ -271,7 +303,11 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
               >
                 TP
               </div>
-              <button className="p-2 rounded relative group hover:bg-destructive/10 transition-colors">
+              <button
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="p-2 rounded relative group hover:bg-destructive/10 transition-colors"
+              >
                 <LogOut
                   className="h-5 w-5"
                   style={{ color: "var(--status-failed)" }}

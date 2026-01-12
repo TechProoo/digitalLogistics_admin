@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import type { Checkpoint } from "../../types/shipment";
+import type { ShipmentCheckpoint } from "../../types/shipment";
+import { formatTimestamp } from "../../types/shipment";
 import { MapPin, Send, Loader2 } from "lucide-react";
 
 interface CheckpointListProps {
-  checkpoints: Checkpoint[];
+  checkpoints: ShipmentCheckpoint[];
   onAddCheckpoint: (location: string, description: string) => Promise<void>;
   isLoading?: boolean;
 }
@@ -100,11 +101,13 @@ export const CheckpointList: React.FC<CheckpointListProps> = ({
                   className="text-xs font-medium"
                   style={{ color: "var(--text-tertiary)" }}
                 >
-                  {checkpoint.timestamp}
-                  {checkpoint.admin && (
+                  {formatTimestamp(checkpoint.timestamp)}
+                  {checkpoint.adminName && (
                     <>
                       <span className="mx-1.5">•</span>
-                      <span className="font-semibold">{checkpoint.admin}</span>
+                      <span className="font-semibold">
+                        {checkpoint.adminName}
+                      </span>
                     </>
                   )}
                 </div>

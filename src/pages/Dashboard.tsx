@@ -1,6 +1,5 @@
 import Sidebar from "../components/sidebar";
 import { ShipmentDetailsModal } from "../components/shipment/ShipmentDetailsModal";
-import { SHIPMENTS_TABLE_ROWS } from "../data/shipments";
 import {
   AlertCircle,
   Package,
@@ -11,7 +10,30 @@ import {
   Filter,
   MoreVertical,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { shipmentsApi } from "../services/shipmentsApi";
+import { getApiErrorMessage } from "../services/apiClient";
+import type { Shipment, ShipmentTableRow } from "../types/shipment";
+import {
+  formatTimestamp,
+  SERVICE_TYPE_LABELS,
+  SHIPMENT_STATUS_LABELS,
+} from "../types/shipment";
+
+function toShipmentRow(shipment: Shipment): ShipmentTableRow {
+  return {
+    id: shipment.id,
+    trackingId: shipment.trackingId,
+    customer: shipment.customer.name || shipment.customer.email,
+    email: shipment.customer.email,
+    phone: shipment.phone,
+    route: `${shipment.pickupLocation} → ${shipment.destinationLocation}`,
+    service: SERVICE_TYPE_LABELS[shipment.serviceType],
+    status: SHIPMENT_STATUS_LABELS[shipment.status],
+    statusRaw: shipment.status,
+    created: formatTimestamp(shipment.createdAt),
+  };
+}
 
 const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -21,35 +43,64 @@ const Dashboard = () => {
   const [selectedShipmentId, setSelectedShipmentId] = useState<string | null>(
     null
   );
+  const [shipments, setShipments] = useState<ShipmentTableRow[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const stats = [
-    {
-      title: "Total Shipments",
-      value: "8",
-      change: "+12% from last week",
-      icon: Package,
-    },
-    {
-      title: "Pending Requests",
-      value: "1",
-      change: null,
-      icon: Clock,
-    },
-    {
-      title: "In Transit",
-      value: "3",
-      change: null,
-      icon: Truck,
-    },
-    {
-      title: "Delivered",
-      value: "1",
-      change: null,
-      icon: CheckCircle,
-    },
-  ];
+  const loadShipments = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await shipmentsApi.list();
+      setShipments(data.map(toShipmentRow));
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const shipments = SHIPMENTS_TABLE_ROWS;
+  useEffect(() => {
+    loadShipments();
+  }, []);
+
+  const stats = useMemo(() => {
+    const total = shipments.length;
+    const inTransit = shipments.filter(
+      (s) => s.statusRaw === "IN_TRANSIT"
+    ).length;
+    const delivered = shipments.filter(
+      (s) => s.statusRaw === "DELIVERED"
+    ).length;
+    const quoted = shipments.filter((s) => s.statusRaw === "QUOTED").length;
+
+    return [
+      {
+        title: "Total Shipments",
+        value: String(total),
+        change: null,
+        icon: Package,
+      },
+      {
+        title: "Pending Requests",
+        value: String(quoted),
+        change: null,
+        icon: Clock,
+      },
+      {
+        title: "In Transit",
+        value: String(inTransit),
+        change: null,
+        icon: Truck,
+      },
+      {
+        title: "Delivered",
+        value: String(delivered),
+        change: null,
+        icon: CheckCircle,
+      },
+    ];
+  }, [shipments]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -108,9 +159,10 @@ const Dashboard = () => {
 
   const filteredShipments = shipments.filter((shipment) => {
     const matchesSearch =
-      shipment.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      shipment.trackingId.toLowerCase().includes(searchQuery.toLowerCase()) ||
       shipment.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      shipment.phone.includes(searchQuery);
+      shipment.phone.includes(searchQuery) ||
+      shipment.email.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStatus =
       statusFilter === "all" ||
@@ -130,7 +182,7 @@ const Dashboard = () => {
         <div className="flex justify-between items-start">
           <div>
             <h1
-              className="text-4xl font-bold mb-2"
+              className="text-4xl font-bold mb-2 header"
               style={{ color: "var(--text-primary)" }}
             >
               Dashboard Overview
@@ -142,15 +194,15 @@ const Dashboard = () => {
 
           {/* Alert Badge */}
           <div
-            className="px-4 py-3 rounded-lg border flex items-center gap-2"
+            className="flex items-center gap-2 px-4 py-3 rounded-lg"
             style={{
-              backgroundColor: "rgba(255, 193, 7, 0.08)",
-              borderColor: "rgba(255, 193, 7, 0.3)",
+              backgroundColor: "rgba(239, 68, 68, 0.1)",
+              border: "1px solid rgba(239, 68, 68, 0.3)",
             }}
           >
-            <AlertCircle className="h-5 w-5" style={{ color: "#ffc107" }} />
-            <span style={{ color: "#ffc107" }} className="font-medium">
-              1 pending quote need attention
+            <AlertCircle className="h-5 w-5" style={{ color: "#ef4444" }} />
+            <span style={{ color: "#ef4444" }} className="font-medium">
+              1 pending quote needs attention
             </span>
           </div>
         </div>
@@ -171,7 +223,7 @@ const Dashboard = () => {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <p
-                      className="text-sm font-medium mb-2"
+                      className="text-sm font-medium mb-2 header"
                       style={{ color: "var(--text-secondary)" }}
                     >
                       {stat.title}
@@ -211,7 +263,7 @@ const Dashboard = () => {
         {/* Recent Shipments */}
         <div className="space-y-6">
           <h2
-            className="text-2xl font-bold"
+            className="text-2xl font-bold header"
             style={{ color: "var(--text-primary)" }}
           >
             Recent Shipments
@@ -264,7 +316,7 @@ const Dashboard = () => {
                   }}
                 >
                   <Filter className="h-4 w-4" />
-                  <span>All Statuses</span>
+                  <span className="header">All Statuses</span>
                 </button>
               </div>
 
@@ -281,7 +333,7 @@ const Dashboard = () => {
                     color: "var(--text-primary)",
                   }}
                 >
-                  <span>All Services</span>
+                  <span className="header">All Services</span>
                 </button>
               </div>
             </div>
@@ -304,37 +356,37 @@ const Dashboard = () => {
               >
                 <tr>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Tracking ID
                   </th>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Customer
                   </th>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Phone
                   </th>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Service
                   </th>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Status
                   </th>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Created
@@ -348,123 +400,161 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredShipments.map((shipment, idx) => {
-                  const statusColor = getStatusColor(shipment.status);
-                  const isEven = idx % 2 === 0;
-                  return (
-                    <tr
-                      key={shipment.id}
-                      className="border-b transition-colors hover:opacity-80"
-                      style={{
-                        backgroundColor: isEven
-                          ? "rgba(46, 196, 182, 0.02)"
-                          : "transparent",
-                        borderColor: "var(--border-medium)",
-                      }}
+                {isLoading && (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-6 py-10 text-center"
+                      style={{ color: "var(--text-secondary)" }}
                     >
-                      <td
-                        className="px-6 py-4 font-semibold whitespace-nowrap"
-                        style={{ color: "var(--accent-teal)" }}
+                      Loading shipments...
+                    </td>
+                  </tr>
+                )}
+
+                {!isLoading && error && (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-6 py-10 text-center"
+                      style={{ color: "#ef4444" }}
+                    >
+                      {error}
+                    </td>
+                  </tr>
+                )}
+
+                {!isLoading && !error && filteredShipments.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-6 py-10 text-center"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      No shipments match your search/filters.
+                    </td>
+                  </tr>
+                )}
+
+                {!isLoading &&
+                  !error &&
+                  filteredShipments.map((shipment, idx) => {
+                    const statusColor = getStatusColor(shipment.status);
+                    const isEven = idx % 2 === 0;
+                    return (
+                      <tr
+                        key={shipment.id}
+                        className="border-b transition-colors hover:opacity-80"
+                        style={{
+                          backgroundColor: isEven
+                            ? "rgba(46, 196, 182, 0.02)"
+                            : "transparent",
+                          borderColor: "var(--border-medium)",
+                        }}
                       >
-                        {shipment.id}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div
-                          className="font-semibold head"
-                          style={{ color: "var(--text-primary)" }}
+                        <td
+                          className="px-6 py-4 font-semibold whitespace-nowrap"
+                          style={{ color: "var(--accent-teal)" }}
                         >
-                          <p className="headr">{shipment.customer}</p>
-                        </div>
-                        <div
-                          className="text-xs"
+                          {shipment.trackingId}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div
+                            className="font-semibold head"
+                            style={{ color: "var(--text-primary)" }}
+                          >
+                            <p className="header">{shipment.customer}</p>
+                          </div>
+                          <div
+                            className="text-xs"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            {shipment.email}
+                          </div>
+                        </td>
+                        <td
+                          className="px-6 py-4"
                           style={{ color: "var(--text-secondary)" }}
                         >
-                          {shipment.email}
-                        </div>
-                      </td>
-                      <td
-                        className="px-6 py-4"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        {shipment.phone}
-                      </td>
-                      <td
-                        className="px-6 py-4"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        {shipment.service}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className="inline-block px-3 py-1 rounded-full text-xs font-medium"
-                          style={{
-                            backgroundColor: statusColor.bg,
-                            color: statusColor.text,
-                          }}
+                          {shipment.phone}
+                        </td>
+                        <td
+                          className="px-6 py-4"
+                          style={{ color: "var(--text-secondary)" }}
                         >
-                          {statusColor.label}
-                        </span>
-                      </td>
-                      <td
-                        className="px-6 py-4"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        {shipment.created}
-                      </td>
-                      <td className="px-6 py-4 text-center relative">
-                        <button
-                          onClick={() =>
-                            setOpenMenu(
-                              openMenu === shipment.id ? null : shipment.id
-                            )
-                          }
-                          className="p-2 rounded-lg transition-all"
-                          style={{
-                            backgroundColor: "rgba(46, 196, 182, 0.08)",
-                            color: "var(--text-secondary)",
-                            border: "none",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
-                        {openMenu === shipment.id && (
-                          <div
-                            className="absolute right-0 mt-2 w-44 rounded-lg border shadow-lg z-20 overflow-hidden"
+                          {shipment.service}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className="inline-block px-3 py-1 rounded-full text-xs font-medium"
                             style={{
-                              backgroundColor: "var(--bg-secondary)",
-                              borderColor: "var(--border-medium)",
+                              backgroundColor: statusColor.bg,
+                              color: statusColor.text,
                             }}
                           >
-                            <button
-                              onClick={() => {
-                                setSelectedShipmentId(shipment.id);
-                                setOpenMenu(null);
-                              }}
-                              className="w-full px-4 py-3 text-left text-sm font-medium transition-colors"
+                            {statusColor.label}
+                          </span>
+                        </td>
+                        <td
+                          className="px-6 py-4"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
+                          {shipment.created}
+                        </td>
+                        <td className="px-6 py-4 text-center relative">
+                          <button
+                            onClick={() =>
+                              setOpenMenu(
+                                openMenu === shipment.id ? null : shipment.id
+                              )
+                            }
+                            className="p-2 rounded-lg transition-all"
+                            style={{
+                              backgroundColor: "rgba(46, 196, 182, 0.08)",
+                              color: "var(--text-secondary)",
+                              border: "none",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                          {openMenu === shipment.id && (
+                            <div
+                              className="absolute right-0 mt-2 w-44 rounded-lg border shadow-lg z-20 overflow-hidden"
                               style={{
-                                color: "var(--text-primary)",
-                                backgroundColor: "transparent",
-                                border: "none",
-                                cursor: "pointer",
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor =
-                                  "rgba(46, 196, 182, 0.08)";
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor =
-                                  "transparent";
+                                backgroundColor: "var(--bg-secondary)",
+                                borderColor: "var(--border-medium)",
                               }}
                             >
-                              View Details
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                              <button
+                                onClick={() => {
+                                  setSelectedShipmentId(shipment.id);
+                                  setOpenMenu(null);
+                                }}
+                                className="w-full px-4 py-3 text-left text-sm font-medium transition-colors"
+                                style={{
+                                  color: "var(--text-primary)",
+                                  backgroundColor: "transparent",
+                                  border: "none",
+                                  cursor: "pointer",
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor =
+                                    "rgba(46, 196, 182, 0.08)";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor =
+                                    "transparent";
+                                }}
+                              >
+                                View Details
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
@@ -474,9 +564,8 @@ const Dashboard = () => {
         isOpen={!!selectedShipmentId}
         onClose={() => setSelectedShipmentId(null)}
         shipmentId={selectedShipmentId || ""}
-        shipments={shipments}
         onUpdate={() => {
-          // Refresh shipment data if needed
+          loadShipments();
         }}
       />
     </Sidebar>

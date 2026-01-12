@@ -8,15 +8,22 @@ import {
   PackageCheck,
   XCircle,
 } from "lucide-react";
-import type { StatusHistoryItem, Status } from "../../types/shipment";
-import { STATUS_LABELS, STATUS_COLORS } from "../../types/shipment";
+import type {
+  ShipmentStatusHistoryItem,
+  ShipmentStatus,
+} from "../../types/shipment";
+import {
+  formatTimestamp,
+  SHIPMENT_STATUS_LABELS,
+  SHIPMENT_STATUS_COLORS,
+} from "../../types/shipment";
 
 interface StatusTimelineProps {
-  statusHistory: StatusHistoryItem[];
-  currentStatus: Status;
+  statusHistory: ShipmentStatusHistoryItem[];
+  currentStatus: ShipmentStatus;
 }
 
-const getStatusIcon = (status: Status, isActive: boolean) => {
+const getStatusIcon = (status: ShipmentStatus, isActive: boolean) => {
   const iconProps = {
     className: `w-5 h-5 transition-transform duration-300 ${
       isActive ? "scale-110" : ""
@@ -24,19 +31,19 @@ const getStatusIcon = (status: Status, isActive: boolean) => {
   };
 
   switch (status) {
-    case "pending":
+    case "PENDING":
       return <Clock {...iconProps} />;
-    case "quoted":
+    case "QUOTED":
       return <FileText {...iconProps} />;
-    case "accepted":
+    case "ACCEPTED":
       return <CheckCircle {...iconProps} />;
-    case "picked_up":
+    case "PICKED_UP":
       return <Truck {...iconProps} />;
-    case "in_transit":
+    case "IN_TRANSIT":
       return <Plane {...iconProps} />;
-    case "delivered":
+    case "DELIVERED":
       return <PackageCheck {...iconProps} />;
-    case "cancelled":
+    case "CANCELLED":
       return <XCircle {...iconProps} />;
     default:
       return <Clock {...iconProps} />;
@@ -65,7 +72,7 @@ export const StatusTimeline: React.FC<StatusTimelineProps> = ({
           const isCurrent = item.status === currentStatus;
           const isCompleted =
             idx < statusHistory.findIndex((h) => h.status === currentStatus);
-          const colors = STATUS_COLORS[item.status];
+          const colors = SHIPMENT_STATUS_COLORS[item.status];
 
           return (
             <div
@@ -123,7 +130,7 @@ export const StatusTimeline: React.FC<StatusTimelineProps> = ({
                         color: isCurrent ? colors.text : "var(--text-primary)",
                       }}
                     >
-                      {STATUS_LABELS[item.status]}
+                      {SHIPMENT_STATUS_LABELS[item.status]}
                     </div>
                     {isCurrent && (
                       <span
@@ -143,11 +150,11 @@ export const StatusTimeline: React.FC<StatusTimelineProps> = ({
                     className="text-xs font-medium mb-2"
                     style={{ color: "var(--text-secondary)" }}
                   >
-                    {item.timestamp}
-                    {item.admin && (
+                    {formatTimestamp(item.timestamp)}
+                    {item.adminName && (
                       <>
                         <span className="mx-1.5">•</span>
-                        <span className="font-semibold">{item.admin}</span>
+                        <span className="font-semibold">{item.adminName}</span>
                       </>
                     )}
                   </div>

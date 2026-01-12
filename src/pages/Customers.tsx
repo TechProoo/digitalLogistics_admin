@@ -1,8 +1,11 @@
 import Sidebar from "../components/sidebar";
-import { SHIPMENTS_TABLE_ROWS } from "../data/shipments";
 import { CheckCircle, Package, Search, Users } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { shipmentsApi } from "../services/shipmentsApi";
+import { getApiErrorMessage } from "../services/apiClient";
+import type { Shipment } from "../types/shipment";
+import { formatTimestamp, SHIPMENT_STATUS_LABELS } from "../types/shipment";
 
 const statusOrder = [
   "All",
@@ -24,7 +27,8 @@ type CustomerRow = {
   phone: string;
   totalShipments: number;
   activeShipments: number;
-  lastShipmentId: string;
+  lastShipmentDbId: string;
+  lastShipmentTrackingId: string;
   lastShipmentStatus: string;
   lastShipmentCreated: string;
 };
@@ -98,6 +102,26 @@ const Customers = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
+  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadShipments = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await shipmentsApi.list();
+      setShipments(data);
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadShipments();
+  }, []);
 
   const customers = useMemo<CustomerRow[]>(() => {
     const byEmail = new Map<
@@ -105,24 +129,26 @@ const Customers = () => {
       CustomerRow & { _lastCreatedValue: number }
     >();
 
-    for (const s of SHIPMENTS_TABLE_ROWS) {
-      const key = (s.email || s.customer).toLowerCase();
-      const createdValue = safeDateValue(s.created);
+    for (const shipment of shipments) {
+      const key = shipment.customer.email.toLowerCase();
+      const createdValue = safeDateValue(shipment.createdAt);
+      const statusLabel = SHIPMENT_STATUS_LABELS[shipment.status];
 
       const existing = byEmail.get(key);
-      const active = isActiveShipment(s.status) ? 1 : 0;
+      const active = isActiveShipment(statusLabel) ? 1 : 0;
 
       if (!existing) {
         byEmail.set(key, {
           key,
-          name: s.customer,
-          email: s.email,
-          phone: s.phone,
+          name: shipment.customer.name || shipment.customer.email,
+          email: shipment.customer.email,
+          phone: shipment.customer.phone || shipment.phone,
           totalShipments: 1,
           activeShipments: active,
-          lastShipmentId: s.id,
-          lastShipmentStatus: s.status,
-          lastShipmentCreated: s.created,
+          lastShipmentDbId: shipment.id,
+          lastShipmentTrackingId: shipment.trackingId,
+          lastShipmentStatus: statusLabel,
+          lastShipmentCreated: formatTimestamp(shipment.createdAt),
           _lastCreatedValue: createdValue,
         });
         continue;
@@ -133,16 +159,17 @@ const Customers = () => {
 
       if (createdValue >= existing._lastCreatedValue) {
         existing._lastCreatedValue = createdValue;
-        existing.lastShipmentId = s.id;
-        existing.lastShipmentStatus = s.status;
-        existing.lastShipmentCreated = s.created;
+        existing.lastShipmentDbId = shipment.id;
+        existing.lastShipmentTrackingId = shipment.trackingId;
+        existing.lastShipmentStatus = statusLabel;
+        existing.lastShipmentCreated = formatTimestamp(shipment.createdAt);
       }
     }
 
     return Array.from(byEmail.values())
       .sort((a, b) => b._lastCreatedValue - a._lastCreatedValue)
       .map(({ _lastCreatedValue, ...rest }) => rest);
-  }, []);
+  }, [shipments]);
 
   const stats = useMemo(() => {
     const total = customers.length;
@@ -177,7 +204,7 @@ const Customers = () => {
         {/* Header */}
         <div className="flex flex-col gap-2">
           <h1
-            className="text-3xl font-bold"
+            className="text-3xl font-bold header"
             style={{ color: "var(--text-primary)" }}
           >
             Customers
@@ -211,7 +238,7 @@ const Customers = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p
-                      className="text-sm font-medium"
+                      className="text-sm font-medium header"
                       style={{ color: "var(--text-secondary)" }}
                     >
                       {card.title}
@@ -286,7 +313,7 @@ const Customers = () => {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2
-              className="text-xl font-bold"
+              className="text-xl font-bold header"
               style={{ color: "var(--text-primary)" }}
             >
               All Customers
@@ -312,37 +339,37 @@ const Customers = () => {
               >
                 <tr>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Customer
                   </th>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Contact
                   </th>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Shipments
                   </th>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Last Status
                   </th>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Last Shipment
                   </th>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Actions
@@ -351,147 +378,177 @@ const Customers = () => {
               </thead>
 
               <tbody>
-                {filteredCustomers.map((c, idx) => {
-                  const statusColor = getStatusPillColors(c.lastShipmentStatus);
-                  return (
-                    <tr
-                      key={c.key}
-                      className="border-b hover:bg-opacity-50 transition-colors"
-                      style={{
-                        borderColor: "var(--border-medium)",
-                        backgroundColor:
-                          idx % 2 === 0
-                            ? "rgba(46, 196, 182, 0.03)"
-                            : "transparent",
-                      }}
-                      onClick={() =>
-                        navigate(
-                          `/shipments?customer=${encodeURIComponent(c.name)}`
-                        )
-                      }
+                {isLoading && (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-6 py-10 text-center"
+                      style={{ color: "var(--text-secondary)" }}
                     >
-                      <td
-                        className="px-6 py-4"
-                        style={{ color: "var(--text-primary)" }}
+                      Loading customers...
+                    </td>
+                  </tr>
+                )}
+
+                {!isLoading && error && (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-6 py-10 text-center"
+                      style={{ color: "#ef4444" }}
+                    >
+                      {error}
+                    </td>
+                  </tr>
+                )}
+
+                {!isLoading &&
+                  !error &&
+                  filteredCustomers.map((c, idx) => {
+                    const statusColor = getStatusPillColors(
+                      c.lastShipmentStatus
+                    );
+                    return (
+                      <tr
+                        key={c.key}
+                        className="border-b hover:bg-opacity-50 transition-colors"
+                        style={{
+                          borderColor: "var(--border-medium)",
+                          backgroundColor:
+                            idx % 2 === 0
+                              ? "rgba(46, 196, 182, 0.03)"
+                              : "transparent",
+                        }}
+                        onClick={() =>
+                          navigate(
+                            `/shipments?customer=${encodeURIComponent(c.name)}`
+                          )
+                        }
                       >
-                        <div className="font-semibold">{c.name}</div>
-                        <div
-                          className="text-xs"
+                        <td
+                          className="px-6 py-4"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          <div className="font-semibold header">{c.name}</div>
+                          <div
+                            className="text-xs"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            {c.email}
+                          </div>
+                        </td>
+
+                        <td
+                          className="px-6 py-4"
                           style={{ color: "var(--text-secondary)" }}
                         >
-                          {c.email}
-                        </div>
-                      </td>
+                          {c.phone}
+                        </td>
 
-                      <td
-                        className="px-6 py-4"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        {c.phone}
-                      </td>
+                        <td className="px-6 py-4">
+                          <div style={{ color: "var(--text-primary)" }}>
+                            {c.totalShipments}
+                          </div>
+                          <div
+                            className="text-xs"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            {c.activeShipments} active
+                          </div>
+                        </td>
 
-                      <td className="px-6 py-4">
-                        <div style={{ color: "var(--text-primary)" }}>
-                          {c.totalShipments}
-                        </div>
-                        <div
-                          className="text-xs"
+                        <td className="px-6 py-4">
+                          <span
+                            className="inline-block px-3 py-1 rounded-full text-xs font-medium border"
+                            style={{
+                              backgroundColor: statusColor.bg,
+                              color: statusColor.text,
+                              borderColor: statusColor.border,
+                            }}
+                          >
+                            {c.lastShipmentStatus}
+                          </span>
+                        </td>
+
+                        <td
+                          className="px-6 py-4"
                           style={{ color: "var(--text-secondary)" }}
                         >
-                          {c.activeShipments} active
-                        </div>
-                      </td>
+                          <div style={{ color: "var(--text-primary)" }}>
+                            {c.lastShipmentTrackingId}
+                          </div>
+                          <div className="text-xs">{c.lastShipmentCreated}</div>
+                        </td>
 
-                      <td className="px-6 py-4">
-                        <span
-                          className="inline-block px-3 py-1 rounded-full text-xs font-medium border"
-                          style={{
-                            backgroundColor: statusColor.bg,
-                            color: statusColor.text,
-                            borderColor: statusColor.border,
-                          }}
-                        >
-                          {c.lastShipmentStatus}
-                        </span>
-                      </td>
-
-                      <td
-                        className="px-6 py-4"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        <div style={{ color: "var(--text-primary)" }}>
-                          {c.lastShipmentId}
-                        </div>
-                        <div className="text-xs">{c.lastShipmentCreated}</div>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <div
-                          className="flex items-center gap-2"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            onClick={() =>
-                              navigate(
-                                `/shipments?customer=${encodeURIComponent(
-                                  c.name
-                                )}`
-                              )
-                            }
-                            className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                            style={{
-                              backgroundColor: "rgba(46, 196, 182, 0.12)",
-                              color: "var(--accent-teal)",
-                              border: "1px solid rgba(46, 196, 182, 0.25)",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor =
-                                "rgba(46, 196, 182, 0.18)";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor =
-                                "rgba(46, 196, 182, 0.12)";
-                            }}
+                        <td className="px-6 py-4">
+                          <div
+                            className="flex items-center gap-2"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            Shipments
-                          </button>
+                            <button
+                              onClick={() =>
+                                navigate(
+                                  `/shipments?customer=${encodeURIComponent(
+                                    c.name
+                                  )}`
+                                )
+                              }
+                              className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                              style={{
+                                backgroundColor: "rgba(46, 196, 182, 0.12)",
+                                color: "var(--accent-teal)",
+                                border: "1px solid rgba(46, 196, 182, 0.25)",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor =
+                                  "rgba(46, 196, 182, 0.18)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor =
+                                  "rgba(46, 196, 182, 0.12)";
+                              }}
+                            >
+                              Shipments
+                            </button>
 
-                          <button
-                            onClick={() =>
-                              navigate(
-                                `/shipments?customer=${encodeURIComponent(
-                                  c.name
-                                )}&open=${encodeURIComponent(c.lastShipmentId)}`
-                              )
-                            }
-                            className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                            style={{
-                              backgroundColor: "transparent",
-                              color: "var(--text-secondary)",
-                              border: "1px solid var(--border-medium)",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor =
-                                "var(--bg-tertiary)";
-                              e.currentTarget.style.color =
-                                "var(--text-primary)";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor =
-                                "transparent";
-                              e.currentTarget.style.color =
-                                "var(--text-secondary)";
-                            }}
-                          >
-                            Open Latest
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                            <button
+                              onClick={() =>
+                                navigate(
+                                  `/shipments?customer=${encodeURIComponent(
+                                    c.name
+                                  )}&open=${encodeURIComponent(
+                                    c.lastShipmentDbId
+                                  )}`
+                                )
+                              }
+                              className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                              style={{
+                                backgroundColor: "transparent",
+                                color: "var(--text-secondary)",
+                                border: "1px solid var(--border-medium)",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor =
+                                  "var(--bg-tertiary)";
+                                e.currentTarget.style.color =
+                                  "var(--text-primary)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor =
+                                  "transparent";
+                                e.currentTarget.style.color =
+                                  "var(--text-secondary)";
+                              }}
+                            >
+                              Open Latest
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
 
-                {filteredCustomers.length === 0 && (
+                {!isLoading && !error && filteredCustomers.length === 0 && (
                   <tr>
                     <td
                       colSpan={6}

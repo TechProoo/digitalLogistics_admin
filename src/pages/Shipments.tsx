@@ -1,6 +1,5 @@
 import Sidebar from "../components/sidebar";
 import { ShipmentDetailsModal } from "../components/shipment/ShipmentDetailsModal";
-import { SHIPMENTS_TABLE_ROWS } from "../data/shipments";
 import {
   Search,
   MoreVertical,
@@ -11,6 +10,14 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { shipmentsApi } from "../services/shipmentsApi";
+import { getApiErrorMessage } from "../services/apiClient";
+import type { Shipment, ShipmentTableRow } from "../types/shipment";
+import {
+  formatTimestamp,
+  SERVICE_TYPE_LABELS,
+  SHIPMENT_STATUS_LABELS,
+} from "../types/shipment";
 
 const statusOrder = [
   "All",
@@ -90,6 +97,21 @@ function getStatusPillColors(status: string) {
   }
 }
 
+function toShipmentRow(shipment: Shipment): ShipmentTableRow {
+  return {
+    id: shipment.id,
+    trackingId: shipment.trackingId,
+    customer: shipment.customer.name || shipment.customer.email,
+    email: shipment.customer.email,
+    phone: shipment.phone,
+    route: `${shipment.pickupLocation} → ${shipment.destinationLocation}`,
+    service: SERVICE_TYPE_LABELS[shipment.serviceType],
+    status: SHIPMENT_STATUS_LABELS[shipment.status],
+    statusRaw: shipment.status,
+    created: formatTimestamp(shipment.createdAt),
+  };
+}
+
 const Shipments = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -97,17 +119,16 @@ const Shipments = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
   const [serviceFilter, setServiceFilter] = useState<ServiceFilter>("All");
   const [openMenu, setOpenMenu] = useState<string | null>(null);
-  const [selectedShipmentId, setSelectedShipmentId] = useState<string | null>(
-    null
-  );
+  const [selectedShipmentId, setSelectedShipmentId] = useState<string | null>(null);
+  const [shipments, setShipments] = useState<ShipmentTableRow[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const customerParam = searchParams.get("customer");
   const openParam = searchParams.get("open");
+
   useEffect(() => {
     if (!customerParam) return;
-
-    // Keep the UX predictable: whenever the URL's customer filter changes,
-    // reflect it in the search box.
     setSearchQuery(customerParam);
   }, [customerParam]);
 
@@ -115,6 +136,23 @@ const Shipments = () => {
     if (!openParam) return;
     setSelectedShipmentId(openParam);
   }, [openParam]);
+
+  const loadShipments = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await shipmentsApi.list();
+      setShipments(data.map(toShipmentRow));
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadShipments();
+  }, []);
 
   const clearUrlFilters = () => {
     const next = new URLSearchParams(searchParams);
@@ -128,27 +166,28 @@ const Shipments = () => {
   };
 
   const stats = useMemo(() => {
-    const total = SHIPMENTS_TABLE_ROWS.length;
-    const pending = SHIPMENTS_TABLE_ROWS.filter(
+    const total = shipments.length;
+    const pending = shipments.filter(
       (s) => s.status === "Pending"
     ).length;
-    const inTransit = SHIPMENTS_TABLE_ROWS.filter(
+    const inTransit = shipments.filter(
       (s) => s.status === "In Transit"
     ).length;
-    const delivered = SHIPMENTS_TABLE_ROWS.filter(
+    const delivered = shipments.filter(
       (s) => s.status === "Delivered"
     ).length;
     return { total, pending, inTransit, delivered };
-  }, []);
+  }, [shipments]);
 
   const filteredShipments = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return SHIPMENTS_TABLE_ROWS.filter((s) => {
+    return shipments.filter((s) => {
       const matchesQuery =
         !q ||
-        s.id.toLowerCase().includes(q) ||
+        s.trackingId.toLowerCase().includes(q) ||
         s.customer.toLowerCase().includes(q) ||
-        s.phone.toLowerCase().includes(q);
+        s.phone.toLowerCase().includes(q) ||
+        s.email.toLowerCase().includes(q);
 
       const matchesStatus = statusFilter === "All" || s.status === statusFilter;
       const matchesService =
@@ -156,7 +195,7 @@ const Shipments = () => {
 
       return matchesQuery && matchesStatus && matchesService;
     });
-  }, [searchQuery, statusFilter, serviceFilter]);
+  }, [shipments, searchQuery, statusFilter, serviceFilter]);
 
   return (
     <Sidebar>
@@ -164,7 +203,7 @@ const Shipments = () => {
         {/* Header */}
         <div className="flex flex-col gap-2">
           <h1
-            className="text-3xl font-bold"
+            className="text-3xl font-bold header"
             style={{ color: "var(--text-primary)" }}
           >
             Shipments
@@ -196,7 +235,7 @@ const Shipments = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p
-                      className="text-sm font-medium"
+                      className="text-sm font-medium header"
                       style={{ color: "var(--text-secondary)" }}
                     >
                       {card.title}
@@ -251,7 +290,7 @@ const Shipments = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="px-4 py-3 rounded-lg border outline-none"
+              className="px-3 py-2 rounded-lg border outline-none text-sm font-medium transition-all hover:border-opacity-60 focus:border-opacity-100 cursor-pointer"
               style={{
                 backgroundColor: "var(--bg-secondary)",
                 borderColor: "var(--border-medium)",
@@ -270,7 +309,7 @@ const Shipments = () => {
               onChange={(e) =>
                 setServiceFilter(e.target.value as ServiceFilter)
               }
-              className="px-4 py-3 rounded-lg border outline-none"
+              className="px-3 py-2 rounded-lg border outline-none text-sm font-medium transition-all hover:border-opacity-60 focus:border-opacity-100 cursor-pointer"
               style={{
                 backgroundColor: "var(--bg-secondary)",
                 borderColor: "var(--border-medium)",
@@ -278,7 +317,7 @@ const Shipments = () => {
               }}
             >
               {serviceOrder.map((s) => (
-                <option key={s} value={s}>
+                <option  key={s} value={s}>
                   {s}
                 </option>
               ))}
@@ -342,7 +381,7 @@ const Shipments = () => {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2
-              className="text-xl font-bold"
+              className="text-xl font-bold header"
               style={{ color: "var(--text-primary)" }}
             >
               All Shipments
@@ -368,31 +407,31 @@ const Shipments = () => {
               >
                 <tr>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Tracking ID
                   </th>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Customer
                   </th>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Phone
                   </th>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Service
                   </th>
                   <th
-                    className="px-6 py-4 font-semibold"
+                    className="px-6 py-4 font-semibold header"
                     style={{ color: "var(--text-secondary)" }}
                   >
                     Status
@@ -431,10 +470,10 @@ const Shipments = () => {
                         className="px-6 py-4 font-bold"
                         style={{ color: "var(--accent-teal)" }}
                       >
-                        {shipment.id}
+                        {shipment.trackingId}
                       </td>
                       <td
-                        className="px-6 py-4"
+                        className="px-6 py-4 header"
                         style={{ color: "var(--text-primary)" }}
                       >
                         {shipment.customer}
@@ -537,7 +576,7 @@ const Shipments = () => {
                   );
                 })}
 
-                {filteredShipments.length === 0 && (
+                {!isLoading && !error && filteredShipments.length === 0 && (
                   <tr>
                     <td
                       colSpan={7}
@@ -565,9 +604,8 @@ const Shipments = () => {
             }
           }}
           shipmentId={selectedShipmentId || ""}
-          shipments={SHIPMENTS_TABLE_ROWS}
           onUpdate={() => {
-            // hook for future refresh
+            loadShipments();
           }}
         />
       </div>

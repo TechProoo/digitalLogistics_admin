@@ -14,31 +14,30 @@ import {
 import type {
   Shipment,
   ShipmentDetailsModalProps,
-  Status,
-  StatusHistoryItem,
-  Checkpoint,
-  Note,
+  ShipmentStatus,
 } from "../../types/shipment";
 import {
-  STATUS_COLORS,
-  STATUS_LABELS,
+  SHIPMENT_STATUS_COLORS,
+  SHIPMENT_STATUS_LABELS,
   VALID_STATUS_TRANSITIONS,
+  formatTimestamp,
 } from "../../types/shipment";
 import { StatusTimeline } from "./StatusTimeline";
 import { CheckpointList } from "./CheckpointList";
 import { InternalNotes } from "./InternalNotes";
+import { shipmentsApi } from "../../services/shipmentsApi";
+import { getApiErrorMessage } from "../../services/apiClient";
 
 export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
   isOpen,
   onClose,
   shipmentId,
-  shipments,
   onUpdate,
 }) => {
   const [shipment, setShipment] = useState<Shipment | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState<ShipmentStatus | "">("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isAnimating, setIsAnimating] = useState(false);
@@ -110,102 +109,13 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
 
   const loadShipment = async () => {
     setIsLoading(true);
+    setError("");
     try {
-      // Find the shipment from the passed data
-      const tableShipment = shipments?.find((s) => s.id === shipmentId);
-
-      if (!tableShipment) {
-        setError("Shipment not found");
-        setIsLoading(false);
-        return;
-      }
-
-      // Convert status to lowercase with underscores
-      const normalizeStatus = (status: string): Status => {
-        const normalized = status.toLowerCase().replace(/\s+/g, "_") as Status;
-        return normalized;
-      };
-
-      // Generate status history based on current status
-      const generateStatusHistory = (
-        currentStatus: Status,
-        createdDate: string
-      ) => {
-        const history: StatusHistoryItem[] = [];
-        const allStatuses: Status[] = [
-          "pending",
-          "quoted",
-          "accepted",
-          "picked_up",
-          "in_transit",
-          "delivered",
-        ];
-        const currentIndex = allStatuses.indexOf(currentStatus);
-
-        // Add history up to current status
-        for (let i = 0; i <= currentIndex; i++) {
-          history.push({
-            status: allStatuses[i],
-            timestamp: createdDate,
-            admin: "System Admin",
-            note: i === 0 ? "Order created" : undefined,
-          });
-        }
-
-        return history;
-      };
-
-      const currentStatus = normalizeStatus(tableShipment.status);
-
-      const shipmentData: Shipment = {
-        id: tableShipment.id,
-        trackingId: tableShipment.id,
-        customer: {
-          name: tableShipment.customer,
-          email: tableShipment.email,
-          phone: tableShipment.phone,
-        },
-        route: {
-          pickup: tableShipment.pickup || "Not specified",
-          destination: tableShipment.destination || "Not specified",
-        },
-        package: {
-          type: tableShipment.packageType || "General Cargo",
-          weight: tableShipment.weight || "N/A",
-          dimensions: tableShipment.dimensions || "N/A",
-          date: tableShipment.created,
-        },
-        serviceType: tableShipment.service.includes("Air")
-          ? "Air"
-          : tableShipment.service.includes("Sea")
-          ? "Sea"
-          : tableShipment.service.includes("Door")
-          ? "Door-to-Door"
-          : "Road",
-        currentStatus: currentStatus,
-        statusHistory: generateStatusHistory(
-          currentStatus,
-          tableShipment.created
-        ),
-        checkpoints:
-          currentStatus === "in_transit"
-            ? [
-                {
-                  id: "1",
-                  location: "Origin Hub",
-                  description: "Package in transit",
-                  timestamp: tableShipment.created,
-                  admin: "System",
-                },
-              ]
-            : [],
-        notes: [],
-      };
-
+      const shipmentData = await shipmentsApi.getById(shipmentId);
       setShipment(shipmentData);
-      setSelectedStatus(shipmentData.currentStatus);
+      setSelectedStatus(shipmentData.status);
     } catch (err) {
-      setError("Failed to load shipment details");
+      setError(getApiErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -230,15 +140,14 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
   const handleStatusChange = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!shipment || selectedStatus === shipment.currentStatus) {
+    if (!shipment || !selectedStatus || selectedStatus === shipment.status) {
       setError("Please select a different status");
       setTimeout(() => setError(""), 3000);
       return;
     }
 
-    const validTransitions =
-      VALID_STATUS_TRANSITIONS[shipment.currentStatus as Status] || [];
-    if (!validTransitions.includes(selectedStatus as Status)) {
+    const validTransitions = VALID_STATUS_TRANSITIONS[shipment.status] || [];
+    if (!validTransitions.includes(selectedStatus)) {
       setError("Invalid status transition");
       setTimeout(() => setError(""), 3000);
       return;
@@ -247,7 +156,9 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
     setIsLoading(true);
     setError("");
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await shipmentsApi.updateStatus(shipment.id, {
+        status: selectedStatus,
+      });
       setSuccess("✓ Status updated successfully");
       setTimeout(() => {
         setIsEditMode(false);
@@ -256,7 +167,7 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
         loadShipment();
       }, 2000);
     } catch (err) {
-      setError("Failed to update status");
+      setError(getApiErrorMessage(err));
       setTimeout(() => setError(""), 3000);
     } finally {
       setIsLoading(false);
@@ -265,86 +176,39 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
 
   const handleAddCheckpoint = async (location: string, description: string) => {
     try {
-      // Replace with actual API call
-      await new Promise((resolve) => setTimeout(resolve, 600));
-
-      // Create new checkpoint
-      const newCheckpoint: Checkpoint = {
-        id: `cp-${Date.now()}`,
-        location,
-        description,
-        timestamp: new Date().toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }),
-        admin: "Current Admin",
-      };
-
-      // Append to existing checkpoints
-      setShipment((prev) =>
-        prev
-          ? {
-              ...prev,
-              checkpoints: [...(prev.checkpoints || []), newCheckpoint],
-            }
-          : null
-      );
+      if (!shipment) return;
+      await shipmentsApi.addCheckpoint(shipment.id, { location, description });
+      await loadShipment();
 
       setSuccess("✓ Checkpoint added");
       setTimeout(() => setSuccess(""), 2000);
     } catch (err) {
-      setError("Failed to add checkpoint");
+      setError(getApiErrorMessage(err));
       setTimeout(() => setError(""), 3000);
     }
   };
 
   const handleAddNote = async (text: string) => {
     try {
-      // Replace with actual API call
-      await new Promise((resolve) => setTimeout(resolve, 600));
-
-      // Create new note
-      const newNote: Note = {
-        id: `note-${Date.now()}`,
-        text,
-        timestamp: new Date().toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }),
-        admin: "Current Admin",
-      };
-
-      // Append to existing notes
-      setShipment((prev) =>
-        prev
-          ? {
-              ...prev,
-              notes: [...(prev.notes || []), newNote],
-            }
-          : null
-      );
+      if (!shipment) return;
+      await shipmentsApi.addNote(shipment.id, { text });
+      await loadShipment();
 
       setSuccess("✓ Note added");
       setTimeout(() => setSuccess(""), 2000);
     } catch (err) {
-      setError("Failed to add note");
+      setError(getApiErrorMessage(err));
       setTimeout(() => setError(""), 3000);
     }
   };
 
   if (!isOpen) return null;
 
-  const statusColors = shipment ? STATUS_COLORS[shipment.currentStatus] : null;
+  const statusColors = shipment
+    ? SHIPMENT_STATUS_COLORS[shipment.status]
+    : null;
   const validNextStatuses = shipment
-    ? VALID_STATUS_TRANSITIONS[shipment.currentStatus as Status] || []
+    ? VALID_STATUS_TRANSITIONS[shipment.status] || []
     : [];
 
   return (
@@ -427,7 +291,7 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                         borderColor: statusColors?.border,
                       }}
                     >
-                      {STATUS_LABELS[shipment.currentStatus]}
+                      {SHIPMENT_STATUS_LABELS[shipment.status]}
                     </span>
 
                     <button
@@ -502,7 +366,7 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                       {
                         icon: Phone,
                         label: "Phone",
-                        value: shipment.customer.phone,
+                        value: shipment.customer.phone || "—",
                         color: "var(--text-primary)",
                       },
                     ]}
@@ -515,13 +379,13 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                       {
                         icon: MapPin,
                         label: "Pickup",
-                        value: shipment.route.pickup,
+                        value: shipment.pickupLocation,
                         color: "#22c55e",
                       },
                       {
                         icon: MapPin,
                         label: "Destination",
-                        value: shipment.route.destination,
+                        value: shipment.destinationLocation,
                         color: "#3b82f6",
                       },
                     ]}
@@ -534,25 +398,25 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                       {
                         icon: Box,
                         label: "Type",
-                        value: shipment.package.type,
+                        value: shipment.packageType,
                         color: "var(--text-primary)",
                       },
                       {
                         icon: Weight,
                         label: "Weight",
-                        value: shipment.package.weight,
+                        value: shipment.weight,
                         color: "var(--text-primary)",
                       },
                       {
                         icon: Ruler,
                         label: "Dimensions",
-                        value: shipment.package.dimensions,
+                        value: shipment.dimensions,
                         color: "var(--text-primary)",
                       },
                       {
                         icon: Calendar,
                         label: "Created",
-                        value: shipment.package.date,
+                        value: formatTimestamp(shipment.createdAt),
                         color: "var(--text-primary)",
                       },
                     ]}
@@ -562,7 +426,7 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                 {/* Right Column - Status & Management */}
                 <div className="space-y-6">
                   {/* Delivered Status - Special UI */}
-                  {shipment.currentStatus === "delivered" && !isEditMode ? (
+                  {shipment.status === "DELIVERED" && !isEditMode ? (
                     <div
                       className="relative overflow-hidden rounded-2xl p-8 text-center"
                       style={{
@@ -631,7 +495,7 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
 
                         {/* Delivery date */}
                         {shipment.statusHistory.find(
-                          (h) => h.status === "delivered"
+                          (h) => h.status === "DELIVERED"
                         ) && (
                           <div
                             className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6"
@@ -648,11 +512,15 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                               className="text-sm font-medium"
                               style={{ color: "var(--status-success)" }}
                             >
-                              {
-                                shipment.statusHistory.find(
-                                  (h) => h.status === "delivered"
-                                )?.timestamp
-                              }
+                              {shipment.statusHistory.find(
+                                (h) => h.status === "DELIVERED"
+                              )?.timestamp
+                                ? formatTimestamp(
+                                    shipment.statusHistory.find(
+                                      (h) => h.status === "DELIVERED"
+                                    )!.timestamp
+                                  )
+                                : ""}
                             </span>
                           </div>
                         )}
@@ -671,7 +539,7 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                           <div className="mt-4">
                             <StatusTimeline
                               statusHistory={shipment.statusHistory}
-                              currentStatus={shipment.currentStatus}
+                              currentStatus={shipment.status}
                             />
                           </div>
                         </details>
@@ -681,13 +549,13 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                     <>
                       <StatusTimeline
                         statusHistory={shipment.statusHistory}
-                        currentStatus={shipment.currentStatus}
+                        currentStatus={shipment.status}
                       />
 
                       <button
                         onClick={() => {
                           setIsEditMode(true);
-                          setSelectedStatus(shipment.currentStatus);
+                          setSelectedStatus(shipment.status);
                           setError("");
                         }}
                         className="w-full px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg group"
@@ -715,7 +583,9 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                           <select
                             value={selectedStatus}
                             onChange={(e) => {
-                              setSelectedStatus(e.target.value);
+                              setSelectedStatus(
+                                e.target.value as ShipmentStatus
+                              );
                               setError("");
                             }}
                             disabled={isLoading}
@@ -727,12 +597,13 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                               border: "2px solid var(--border-medium)",
                             }}
                           >
-                            <option value={shipment.currentStatus}>
-                              {STATUS_LABELS[shipment.currentStatus]} (Current)
+                            <option value={shipment.status}>
+                              {SHIPMENT_STATUS_LABELS[shipment.status]}{" "}
+                              (Current)
                             </option>
-                            {validNextStatuses.map((status: Status) => (
+                            {validNextStatuses.map((status: ShipmentStatus) => (
                               <option key={status} value={status}>
-                                {STATUS_LABELS[status]}
+                                {SHIPMENT_STATUS_LABELS[status]}
                               </option>
                             ))}
                           </select>
@@ -787,7 +658,7 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                             type="button"
                             onClick={() => {
                               setIsEditMode(false);
-                              setSelectedStatus(shipment.currentStatus);
+                              setSelectedStatus(shipment.status);
                               setError("");
                             }}
                             disabled={isLoading}
@@ -805,30 +676,25 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                           <button
                             type="submit"
                             disabled={
-                              isLoading ||
-                              selectedStatus === shipment.currentStatus
+                              isLoading || selectedStatus === shipment.status
                             }
                             className="flex-1 px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
                             style={{
                               backgroundColor:
-                                isLoading ||
-                                selectedStatus === shipment.currentStatus
+                                isLoading || selectedStatus === shipment.status
                                   ? "var(--bg-tertiary)"
                                   : "var(--text-primary)",
                               color:
-                                isLoading ||
-                                selectedStatus === shipment.currentStatus
+                                isLoading || selectedStatus === shipment.status
                                   ? "var(--text-secondary)"
                                   : "var(--text-inverse)",
                               border: "2px solid var(--border-strong)",
                               cursor:
-                                isLoading ||
-                                selectedStatus === shipment.currentStatus
+                                isLoading || selectedStatus === shipment.status
                                   ? "not-allowed"
                                   : "pointer",
                               opacity:
-                                isLoading ||
-                                selectedStatus === shipment.currentStatus
+                                isLoading || selectedStatus === shipment.status
                                   ? 0.5
                                   : 1,
                             }}
@@ -853,16 +719,16 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                         className="pt-6 border-t"
                         style={{ borderColor: "var(--border-medium)" }}
                       >
-                        {selectedStatus === "in_transit" ||
-                        shipment.currentStatus === "in_transit" ? (
+                        {selectedStatus === "IN_TRANSIT" ||
+                        shipment.status === "IN_TRANSIT" ? (
                           <CheckpointList
-                            checkpoints={shipment.checkpoints || []}
+                            checkpoints={shipment.checkpoints}
                             onAddCheckpoint={handleAddCheckpoint}
                             isLoading={isLoading}
                           />
                         ) : (
                           <InternalNotes
-                            notes={shipment.notes || []}
+                            notes={shipment.notes}
                             onAddNote={handleAddNote}
                             isLoading={isLoading}
                           />

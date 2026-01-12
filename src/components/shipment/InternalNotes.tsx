@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import type { Note } from "../../types/shipment";
+import type { ShipmentNote } from "../../types/shipment";
+import { formatTimestamp } from "../../types/shipment";
 import { Plus, Loader2, FileText } from "lucide-react";
 
 interface InternalNotesProps {
-  notes: Note[];
+  notes: ShipmentNote[];
   onAddNote: (text: string) => Promise<void>;
   isLoading?: boolean;
 }
@@ -93,11 +94,11 @@ export const InternalNotes: React.FC<InternalNotesProps> = ({
                     className="text-xs font-medium"
                     style={{ color: "var(--text-tertiary)" }}
                   >
-                    {note.timestamp}
-                    {note.admin && (
+                    {formatTimestamp(note.timestamp)}
+                    {note.adminName && (
                       <>
                         <span className="mx-1.5">•</span>
-                        <span className="font-semibold">{note.admin}</span>
+                        <span className="font-semibold">{note.adminName}</span>
                       </>
                     )}
                   </div>
