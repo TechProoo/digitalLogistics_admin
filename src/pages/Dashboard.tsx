@@ -7,7 +7,6 @@ import {
   Truck,
   CheckCircle,
   Search,
-  Filter,
   MoreVertical,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -37,8 +36,8 @@ function toShipmentRow(shipment: Shipment): ShipmentTableRow {
 
 const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [serviceFilter, setServiceFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [serviceFilter, setServiceFilter] = useState<string>("all");
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [selectedShipmentId, setSelectedShipmentId] = useState<string | null>(
     null
@@ -160,19 +159,19 @@ const Dashboard = () => {
   };
 
   const filteredShipments = shipments.filter((shipment) => {
+    const q = searchQuery.trim().toLowerCase();
+
     const matchesSearch =
-      shipment.trackingId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      shipment.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      shipment.phone.includes(searchQuery) ||
-      shipment.email.toLowerCase().includes(searchQuery.toLowerCase());
+      !q ||
+      shipment.trackingId.toLowerCase().includes(q) ||
+      shipment.customer.toLowerCase().includes(q) ||
+      shipment.phone.toLowerCase().includes(q) ||
+      shipment.email.toLowerCase().includes(q);
 
     const matchesStatus =
-      statusFilter === "all" ||
-      shipment.status.toLowerCase() === statusFilter.toLowerCase();
-
+      statusFilter === "all" || shipment.status === statusFilter;
     const matchesService =
-      serviceFilter === "all" ||
-      shipment.service.toLowerCase() === serviceFilter.toLowerCase();
+      serviceFilter === "all" || shipment.service === serviceFilter;
 
     return matchesSearch && matchesStatus && matchesService;
   });
@@ -302,41 +301,47 @@ const Dashboard = () => {
               `}</style>
             </div>
 
-            {/* Filter Buttons */}
+            {/* Filters */}
             <div className="flex gap-3">
-              {/* Status Filter */}
               <div className="relative">
-                <button
-                  onClick={() =>
-                    setStatusFilter(statusFilter === "all" ? "pending" : "all")
-                  }
-                  className="flex items-center gap-2 px-4 py-3 rounded-lg border transition-all"
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="flex items-center gap-2 px-4 py-3 rounded-lg border transition-all outline-none"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
                     borderColor: "var(--border-medium)",
                     color: "var(--text-primary)",
                   }}
                 >
-                  <Filter className="h-4 w-4" />
-                  <span className="header">All Statuses</span>
-                </button>
+                  <option value="all">All Statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Quoted">Quoted</option>
+                  <option value="Accepted">Accepted</option>
+                  <option value="Picked Up">Picked Up</option>
+                  <option value="In Transit">In Transit</option>
+                  <option value="Delivered">Delivered</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
               </div>
 
-              {/* Service Filter */}
               <div className="relative">
-                <button
-                  onClick={() =>
-                    setServiceFilter(serviceFilter === "all" ? "air" : "all")
-                  }
-                  className="flex items-center gap-2 px-4 py-3 rounded-lg border transition-all"
+                <select
+                  value={serviceFilter}
+                  onChange={(e) => setServiceFilter(e.target.value)}
+                  className="flex items-center gap-2 px-4 py-3 rounded-lg border transition-all outline-none"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
                     borderColor: "var(--border-medium)",
                     color: "var(--text-primary)",
                   }}
                 >
-                  <span className="header">All Services</span>
-                </button>
+                  <option value="all">All Services</option>
+                  <option value="Air Freight">Air Freight</option>
+                  <option value="Road Freight">Road Freight</option>
+                  <option value="Sea Freight">Sea Freight</option>
+                  <option value="Door-to-Door">Door-to-Door</option>
+                </select>
               </div>
             </div>
           </div>
