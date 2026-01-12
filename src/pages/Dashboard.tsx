@@ -72,7 +72,9 @@ const Dashboard = () => {
     const delivered = shipments.filter(
       (s) => s.statusRaw === "DELIVERED"
     ).length;
-    const quoted = shipments.filter((s) => s.statusRaw === "QUOTED").length;
+    const pendingRequests = shipments.filter(
+      (s) => s.statusRaw === "PENDING"
+    ).length;
 
     return [
       {
@@ -83,7 +85,7 @@ const Dashboard = () => {
       },
       {
         title: "Pending Requests",
-        value: String(quoted),
+        value: String(pendingRequests),
         change: null,
         icon: Clock,
       },

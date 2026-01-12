@@ -117,7 +117,8 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
       setShipment(shipmentData);
       setSelectedStatus(shipmentData.status);
       setAmountInput(
-        typeof shipmentData.amount === "number" && Number.isFinite(shipmentData.amount)
+        typeof shipmentData.amount === "number" &&
+          Number.isFinite(shipmentData.amount)
           ? String(shipmentData.amount)
           : ""
       );
@@ -133,7 +134,11 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
     if (!shipment) return;
 
     const nextAmount = Number(amountInput);
-    if (!Number.isFinite(nextAmount) || !Number.isInteger(nextAmount) || nextAmount < 0) {
+    if (
+      !Number.isFinite(nextAmount) ||
+      !Number.isInteger(nextAmount) ||
+      nextAmount < 0
+    ) {
       setError("Amount must be a whole number (₦) and at least 0");
       setTimeout(() => setError(""), 3000);
       return;
@@ -483,10 +488,16 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                     </h3>
 
                     <div className="flex items-center justify-between gap-4 mb-4">
-                      <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>
+                      <div
+                        className="text-xs font-semibold uppercase tracking-wide"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         Amount (₦)
                       </div>
-                      <div className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+                      <div
+                        className="text-sm font-bold"
+                        style={{ color: "var(--text-primary)" }}
+                      >
                         ₦{(shipment.amount ?? 0).toLocaleString("en-NG")}
                       </div>
                     </div>
