@@ -41,6 +41,8 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isAnimating, setIsAnimating] = useState(false);
+  const [amountInput, setAmountInput] = useState("");
+  const [isSavingAmount, setIsSavingAmount] = useState(false);
   const openedAtRef = useRef<number>(0);
   const lastIsOpenRef = useRef<boolean>(false);
   const [isBackdropEnabled, setIsBackdropEnabled] = useState(false);
@@ -114,10 +116,44 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
       const shipmentData = await shipmentsApi.getById(shipmentId);
       setShipment(shipmentData);
       setSelectedStatus(shipmentData.status);
+      setAmountInput(
+        typeof shipmentData.amount === "number" && Number.isFinite(shipmentData.amount)
+          ? String(shipmentData.amount)
+          : ""
+      );
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSaveAmount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!shipment) return;
+
+    const nextAmount = Number(amountInput);
+    if (!Number.isFinite(nextAmount) || !Number.isInteger(nextAmount) || nextAmount < 0) {
+      setError("Amount must be a whole number (₦) and at least 0");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+
+    if (nextAmount === shipment.amount) return;
+
+    setIsSavingAmount(true);
+    setError("");
+    try {
+      await shipmentsApi.updateAmount(shipment.id, { amount: nextAmount });
+      setSuccess("✓ Amount updated successfully");
+      setTimeout(() => setSuccess(""), 2000);
+      onUpdate?.();
+      await loadShipment();
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+      setTimeout(() => setError(""), 3000);
+    } finally {
+      setIsSavingAmount(false);
     }
   };
 
@@ -365,8 +401,14 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                       },
                       {
                         icon: Phone,
-                        label: "Phone",
-                        value: shipment.customer.phone || "—",
+                        label: "Sender Phone",
+                        value: shipment.phone || "—",
+                        color: "var(--text-primary)",
+                      },
+                      {
+                        icon: Phone,
+                        label: "Receiver Phone",
+                        value: shipment.receiverPhone || "—",
                         color: "var(--text-primary)",
                       },
                     ]}
@@ -421,6 +463,94 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                       },
                     ]}
                   />
+
+                  <div
+                    className="p-6 rounded-xl border"
+                    style={{
+                      backgroundColor: "var(--bg-secondary)",
+                      borderColor: "var(--border-medium)",
+                    }}
+                  >
+                    <h3
+                      className="text-xs font-bold uppercase tracking-wider mb-5 flex items-center gap-2"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      <div
+                        className="h-1 w-8 rounded"
+                        style={{ backgroundColor: "var(--border-strong)" }}
+                      />
+                      Pricing
+                    </h3>
+
+                    <div className="flex items-center justify-between gap-4 mb-4">
+                      <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>
+                        Amount (₦)
+                      </div>
+                      <div className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+                        ₦{(shipment.amount ?? 0).toLocaleString("en-NG")}
+                      </div>
+                    </div>
+
+                    <form onSubmit={handleSaveAmount} className="flex gap-3">
+                      <div className="flex-1">
+                        <input
+                          inputMode="numeric"
+                          value={amountInput}
+                          onChange={(e) => {
+                            // keep digits only
+                            const next = e.target.value.replace(/[^0-9]/g, "");
+                            setAmountInput(next);
+                          }}
+                          placeholder="0"
+                          disabled={isLoading || isSavingAmount}
+                          className="w-full px-4 py-3 rounded-lg font-medium outline-none"
+                          style={{
+                            backgroundColor: "var(--bg-primary)",
+                            border: "2px solid var(--border-medium)",
+                            color: "var(--text-primary)",
+                          }}
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={
+                          isLoading ||
+                          isSavingAmount ||
+                          Number(amountInput || "0") === shipment.amount
+                        }
+                        className="px-5 py-3 rounded-lg font-bold transition-all"
+                        style={{
+                          backgroundColor:
+                            isLoading ||
+                            isSavingAmount ||
+                            Number(amountInput || "0") === shipment.amount
+                              ? "var(--bg-tertiary)"
+                              : "var(--text-primary)",
+                          color:
+                            isLoading ||
+                            isSavingAmount ||
+                            Number(amountInput || "0") === shipment.amount
+                              ? "var(--text-secondary)"
+                              : "var(--text-inverse)",
+                          border: "2px solid var(--border-strong)",
+                          cursor:
+                            isLoading ||
+                            isSavingAmount ||
+                            Number(amountInput || "0") === shipment.amount
+                              ? "not-allowed"
+                              : "pointer",
+                          opacity:
+                            isLoading ||
+                            isSavingAmount ||
+                            Number(amountInput || "0") === shipment.amount
+                              ? 0.6
+                              : 1,
+                        }}
+                      >
+                        {isSavingAmount ? "Saving..." : "Save"}
+                      </button>
+                    </form>
+                  </div>
                 </div>
 
                 {/* Right Column - Status & Management */}

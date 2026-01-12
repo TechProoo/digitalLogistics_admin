@@ -59,6 +59,9 @@ export type Shipment = {
   phone: string;
   receiverPhone?: string | null;
 
+  // Amount in Nigerian Naira (whole number)
+  amount: number;
+
   createdAt: string;
   updatedAt: string;
 

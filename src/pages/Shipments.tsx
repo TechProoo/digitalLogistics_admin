@@ -119,7 +119,9 @@ const Shipments = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
   const [serviceFilter, setServiceFilter] = useState<ServiceFilter>("All");
   const [openMenu, setOpenMenu] = useState<string | null>(null);
-  const [selectedShipmentId, setSelectedShipmentId] = useState<string | null>(null);
+  const [selectedShipmentId, setSelectedShipmentId] = useState<string | null>(
+    null
+  );
   const [shipments, setShipments] = useState<ShipmentTableRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,15 +169,9 @@ const Shipments = () => {
 
   const stats = useMemo(() => {
     const total = shipments.length;
-    const pending = shipments.filter(
-      (s) => s.status === "Pending"
-    ).length;
-    const inTransit = shipments.filter(
-      (s) => s.status === "In Transit"
-    ).length;
-    const delivered = shipments.filter(
-      (s) => s.status === "Delivered"
-    ).length;
+    const pending = shipments.filter((s) => s.status === "Pending").length;
+    const inTransit = shipments.filter((s) => s.status === "In Transit").length;
+    const delivered = shipments.filter((s) => s.status === "Delivered").length;
     return { total, pending, inTransit, delivered };
   }, [shipments]);
 
@@ -317,7 +313,7 @@ const Shipments = () => {
               }}
             >
               {serviceOrder.map((s) => (
-                <option  key={s} value={s}>
+                <option key={s} value={s}>
                   {s}
                 </option>
               ))}

@@ -28,6 +28,10 @@ export type AddNoteBody = {
   adminName?: string;
 };
 
+export type UpdateShipmentAmountBody = {
+  amount: number;
+};
+
 export const shipmentsApi = {
   async list(params?: ListShipmentsParams): Promise<Shipment[]> {
     const res = await apiClient.get<Shipment[]>("/shipments", { params });
@@ -47,6 +51,14 @@ export const shipmentsApi = {
       `/shipments/${id}/status`,
       body
     );
+    return res.data;
+  },
+
+  async updateAmount(
+    id: string,
+    body: UpdateShipmentAmountBody
+  ): Promise<Shipment> {
+    const res = await apiClient.patch<Shipment>(`/shipments/${id}`, body);
     return res.data;
   },
 
