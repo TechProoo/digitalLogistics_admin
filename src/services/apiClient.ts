@@ -8,6 +8,7 @@ export type ApiEnvelope<T> = {
 
 function resolveBaseUrl() {
   const url = (import.meta as any).env?.VITE_API_URL;
+  console.log(url);
   if (typeof url === "string" && url.trim()) return url.trim();
   return url || "http://localhost:3000";
 }
