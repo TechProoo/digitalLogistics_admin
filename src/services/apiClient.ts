@@ -9,7 +9,7 @@ export type ApiEnvelope<T> = {
 function resolveBaseUrl() {
   const url = (import.meta as any).env?.VITE_API_URL;
   if (typeof url === "string" && url.trim()) return url.trim();
-  return "http://localhost:3000";
+  return url || "http://localhost:3000";
 }
 
 export function getApiErrorMessage(error: unknown): string {

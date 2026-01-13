@@ -125,7 +125,7 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
                 </div>
                 <div className="min-w-0">
                   <div className="text-lg font-bold text-primary truncate">
-                    Digital Delivery
+                    Digital Logistics
                   </div>
                   <div className="text-xs text-muted-foreground truncate">
                     Logistics Platform
