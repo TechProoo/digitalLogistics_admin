@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   X,
+  FileText,
   Mail,
   Phone,
   MapPin,
@@ -84,7 +85,7 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
       setIsBackdropEnabled(false);
       backdropEnableTimerRef.current = window.setTimeout(
         () => setIsBackdropEnabled(true),
-        600
+        600,
       );
       loadShipment();
     } else {
@@ -120,7 +121,7 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
         typeof shipmentData.amount === "number" &&
           Number.isFinite(shipmentData.amount)
           ? String(shipmentData.amount)
-          : ""
+          : "",
       );
     } catch (err) {
       setError(getApiErrorMessage(err));
@@ -324,6 +325,26 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0">
+                    <button
+                      type="button"
+                      disabled={isLoading}
+                      className="px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg disabled:hover:scale-100"
+                      style={{
+                        backgroundColor: isLoading
+                          ? "var(--bg-tertiary)"
+                          : "var(--text-primary)",
+                        color: isLoading
+                          ? "var(--text-secondary)"
+                          : "var(--text-inverse)",
+                        border: "2px solid var(--border-strong)",
+                        cursor: isLoading ? "not-allowed" : "pointer",
+                        opacity: isLoading ? 0.6 : 1,
+                      }}
+                      title="Generate invoice"
+                    >
+                      <FileText className="w-5 h-5" />
+                      Generate Invoice
+                    </button>
                     <span
                       className="px-4 py-2 rounded-full text-sm font-bold border-2 transition-all duration-200 hover:scale-105"
                       style={{
@@ -391,7 +412,7 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
 
             {/* Actual Content */}
             {shipment && (
-              <div className="p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+              <div className="p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 ">
                 {/* Left Column - Information */}
                 <div className="space-y-8">
                   {/* Customer Information */}
@@ -468,415 +489,427 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                       },
                     ]}
                   />
-
-                  <div
-                    className="p-6 rounded-xl border"
-                    style={{
-                      backgroundColor: "var(--bg-secondary)",
-                      borderColor: "var(--border-medium)",
-                    }}
-                  >
-                    <h3
-                      className="text-xs font-bold uppercase tracking-wider mb-5 flex items-center gap-2"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      <div
-                        className="h-1 w-8 rounded"
-                        style={{ backgroundColor: "var(--border-strong)" }}
-                      />
-                      Pricing
-                    </h3>
-
-                    <div className="flex items-center justify-between gap-4 mb-4">
-                      <div
-                        className="text-xs font-semibold uppercase tracking-wide"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Amount (₦)
-                      </div>
-                      <div
-                        className="text-sm font-bold"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        ₦{(shipment.amount ?? 0).toLocaleString("en-NG")}
-                      </div>
-                    </div>
-
-                    <form onSubmit={handleSaveAmount} className="flex gap-3">
-                      <div className="flex-1">
-                        <input
-                          inputMode="numeric"
-                          value={amountInput}
-                          onChange={(e) => {
-                            // keep digits only
-                            const next = e.target.value.replace(/[^0-9]/g, "");
-                            setAmountInput(next);
-                          }}
-                          placeholder="0"
-                          disabled={isLoading || isSavingAmount}
-                          className="w-full px-4 py-3 rounded-lg font-medium outline-none"
-                          style={{
-                            backgroundColor: "var(--bg-primary)",
-                            border: "2px solid var(--border-medium)",
-                            color: "var(--text-primary)",
-                          }}
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={
-                          isLoading ||
-                          isSavingAmount ||
-                          Number(amountInput || "0") === shipment.amount
-                        }
-                        className="px-5 py-3 rounded-lg font-bold transition-all"
-                        style={{
-                          backgroundColor:
-                            isLoading ||
-                            isSavingAmount ||
-                            Number(amountInput || "0") === shipment.amount
-                              ? "var(--bg-tertiary)"
-                              : "var(--text-primary)",
-                          color:
-                            isLoading ||
-                            isSavingAmount ||
-                            Number(amountInput || "0") === shipment.amount
-                              ? "var(--text-secondary)"
-                              : "var(--text-inverse)",
-                          border: "2px solid var(--border-strong)",
-                          cursor:
-                            isLoading ||
-                            isSavingAmount ||
-                            Number(amountInput || "0") === shipment.amount
-                              ? "not-allowed"
-                              : "pointer",
-                          opacity:
-                            isLoading ||
-                            isSavingAmount ||
-                            Number(amountInput || "0") === shipment.amount
-                              ? 0.6
-                              : 1,
-                        }}
-                      >
-                        {isSavingAmount ? "Saving..." : "Save"}
-                      </button>
-                    </form>
-                  </div>
                 </div>
 
                 {/* Right Column - Status & Management */}
-                <div className="space-y-6">
-                  {/* Delivered Status - Special UI */}
-                  {shipment.status === "DELIVERED" && !isEditMode ? (
-                    <div
-                      className="relative overflow-hidden rounded-2xl p-8 text-center"
-                      style={{
-                        background:
-                          "linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(46, 196, 182, 0.15) 100%)",
-                        border: "2px solid rgba(34, 197, 94, 0.3)",
-                      }}
-                    >
-                      {/* Decorative circles */}
+                <div className="sticky top-2">
+                  {" "}
+                  <div className="space-y-6 sticky top-0">
+                    {/* Delivered Status - Special UI */}
+                    {shipment.status === "DELIVERED" && !isEditMode ? (
                       <div
-                        className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-20"
+                        className="relative overflow-hidden rounded-2xl p-8 text-center"
                         style={{
                           background:
-                            "radial-gradient(circle, rgba(34, 197, 94, 0.4) 0%, transparent 70%)",
-                          transform: "translate(30%, -30%)",
-                        }}
-                      />
-                      <div
-                        className="absolute bottom-0 left-0 w-40 h-40 rounded-full opacity-20"
-                        style={{
-                          background:
-                            "radial-gradient(circle, rgba(46, 196, 182, 0.4) 0%, transparent 70%)",
-                          transform: "translate(-30%, 30%)",
-                        }}
-                      />
-
-                      <div className="relative z-10">
-                        {/* Success icon */}
-                        <div
-                          className="inline-flex items-center justify-center w-20 h-20 rounded-full mb-4"
-                          style={{
-                            backgroundColor: "rgba(34, 197, 94, 0.2)",
-                            border: "3px solid var(--status-success)",
-                          }}
-                        >
-                          <svg
-                            className="w-10 h-10"
-                            style={{ color: "var(--status-success)" }}
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={3}
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                        </div>
-
-                        {/* Main message */}
-                        <h3
-                          className="text-3xl font-bold mb-2"
-                          style={{ color: "var(--status-success)" }}
-                        >
-                          Delivery Completed!
-                        </h3>
-                        <p
-                          className="text-base mb-6"
-                          style={{ color: "var(--text-secondary)" }}
-                        >
-                          This shipment has been successfully delivered to the
-                          destination
-                        </p>
-
-                        {/* Delivery date */}
-                        {shipment.statusHistory.find(
-                          (h) => h.status === "DELIVERED"
-                        ) && (
-                          <div
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6"
-                            style={{
-                              backgroundColor: "rgba(34, 197, 94, 0.1)",
-                              border: "1px solid rgba(34, 197, 94, 0.3)",
-                            }}
-                          >
-                            <Calendar
-                              className="w-4 h-4"
-                              style={{ color: "var(--status-success)" }}
-                            />
-                            <span
-                              className="text-sm font-medium"
-                              style={{ color: "var(--status-success)" }}
-                            >
-                              {shipment.statusHistory.find(
-                                (h) => h.status === "DELIVERED"
-                              )?.timestamp
-                                ? formatTimestamp(
-                                    shipment.statusHistory.find(
-                                      (h) => h.status === "DELIVERED"
-                                    )!.timestamp
-                                  )
-                                : ""}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Status timeline - collapsed view */}
-                        <details className="mt-6 text-left">
-                          <summary
-                            className="cursor-pointer text-sm font-semibold px-4 py-2 rounded-lg inline-block transition-all hover:scale-105"
-                            style={{
-                              color: "var(--text-secondary)",
-                              backgroundColor: "rgba(100, 116, 139, 0.1)",
-                            }}
-                          >
-                            View Delivery History
-                          </summary>
-                          <div className="mt-4">
-                            <StatusTimeline
-                              statusHistory={shipment.statusHistory}
-                              currentStatus={shipment.status}
-                            />
-                          </div>
-                        </details>
-                      </div>
-                    </div>
-                  ) : !isEditMode ? (
-                    <>
-                      <StatusTimeline
-                        statusHistory={shipment.statusHistory}
-                        currentStatus={shipment.status}
-                      />
-
-                      <button
-                        onClick={() => {
-                          setIsEditMode(true);
-                          setSelectedStatus(shipment.status);
-                          setError("");
-                        }}
-                        className="w-full px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg group"
-                        style={{
-                          backgroundColor: "var(--bg-secondary)",
-                          color: "var(--text-primary)",
-                          border: "2px solid var(--border-strong)",
+                            "linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(46, 196, 182, 0.15) 100%)",
+                          border: "2px solid rgba(34, 197, 94, 0.3)",
                         }}
                       >
-                        <Edit2 className="w-5 h-5 transition-transform group-hover:rotate-12" />
-                        Update Status
-                      </button>
-                    </>
-                  ) : (
-                    <div className="space-y-6">
-                      {/* Status Selector Form */}
-                      <form onSubmit={handleStatusChange} className="space-y-6">
-                        <div>
-                          <label
-                            className="block text-xs font-bold uppercase tracking-wider mb-3"
+                        {/* Decorative circles */}
+                        <div
+                          className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-20"
+                          style={{
+                            background:
+                              "radial-gradient(circle, rgba(34, 197, 94, 0.4) 0%, transparent 70%)",
+                            transform: "translate(30%, -30%)",
+                          }}
+                        />
+                        <div
+                          className="absolute bottom-0 left-0 w-40 h-40 rounded-full opacity-20"
+                          style={{
+                            background:
+                              "radial-gradient(circle, rgba(46, 196, 182, 0.4) 0%, transparent 70%)",
+                            transform: "translate(-30%, 30%)",
+                          }}
+                        />
+
+                        <div className="relative z-10">
+                          {/* Success icon */}
+                          <div
+                            className="inline-flex items-center justify-center w-20 h-20 rounded-full mb-4"
+                            style={{
+                              backgroundColor: "rgba(34, 197, 94, 0.2)",
+                              border: "3px solid var(--status-success)",
+                            }}
+                          >
+                            <svg
+                              className="w-10 h-10"
+                              style={{ color: "var(--status-success)" }}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={3}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          </div>
+
+                          {/* Main message */}
+                          <h3
+                            className="text-3xl font-bold mb-2"
+                            style={{ color: "var(--status-success)" }}
+                          >
+                            Delivery Completed!
+                          </h3>
+                          <p
+                            className="text-base mb-6"
                             style={{ color: "var(--text-secondary)" }}
                           >
-                            Select New Status
-                          </label>
-                          <select
-                            value={selectedStatus}
-                            onChange={(e) => {
-                              setSelectedStatus(
-                                e.target.value as ShipmentStatus
-                              );
-                              setError("");
-                            }}
-                            disabled={isLoading}
-                            className="w-full px-4 py-3 rounded-lg font-medium outline-none transition-all duration-200"
-                            style={{
-                              backgroundColor: "var(--bg-secondary)",
-                              borderColor: "var(--border-medium)",
-                              color: "var(--text-primary)",
-                              border: "2px solid var(--border-medium)",
-                            }}
-                          >
-                            <option value={shipment.status}>
-                              {SHIPMENT_STATUS_LABELS[shipment.status]}{" "}
-                              (Current)
-                            </option>
-                            {validNextStatuses.map((status: ShipmentStatus) => (
-                              <option key={status} value={status}>
-                                {SHIPMENT_STATUS_LABELS[status]}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                            This shipment has been successfully delivered to the
+                            destination
+                          </p>
 
-                        {/* Messages */}
-                        {error && (
-                          <div
-                            className="p-4 rounded-xl flex items-center gap-3 animate-shake"
-                            style={{
-                              backgroundColor: "rgba(239, 68, 68, 0.1)",
-                              border: "2px solid rgba(239, 68, 68, 0.3)",
-                            }}
-                          >
-                            <span style={{ fontSize: "1.5rem" }}>⚠️</span>
-                            <span
+                          {/* Delivery date */}
+                          {shipment.statusHistory.find(
+                            (h) => h.status === "DELIVERED",
+                          ) && (
+                            <div
+                              className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6"
                               style={{
-                                color: "#ef4444",
-                                fontSize: "0.875rem",
-                                fontWeight: "600",
+                                backgroundColor: "rgba(34, 197, 94, 0.1)",
+                                border: "1px solid rgba(34, 197, 94, 0.3)",
                               }}
                             >
-                              {error}
-                            </span>
-                          </div>
-                        )}
+                              <Calendar
+                                className="w-4 h-4"
+                                style={{ color: "var(--status-success)" }}
+                              />
+                              <span
+                                className="text-sm font-medium"
+                                style={{ color: "var(--status-success)" }}
+                              >
+                                {shipment.statusHistory.find(
+                                  (h) => h.status === "DELIVERED",
+                                )?.timestamp
+                                  ? formatTimestamp(
+                                      shipment.statusHistory.find(
+                                        (h) => h.status === "DELIVERED",
+                                      )!.timestamp,
+                                    )
+                                  : ""}
+                              </span>
+                            </div>
+                          )}
 
-                        {success && (
-                          <div
-                            className="p-4 rounded-xl flex items-center gap-3 animate-slideIn"
-                            style={{
-                              backgroundColor: "rgba(34, 197, 94, 0.1)",
-                              border: "2px solid rgba(34, 197, 94, 0.3)",
-                            }}
-                          >
-                            <span style={{ fontSize: "1.5rem" }}>✓</span>
-                            <span
+                          {/* Status timeline - collapsed view */}
+                          <details className="mt-6 text-left">
+                            <summary
+                              className="cursor-pointer text-sm font-semibold px-4 py-2 rounded-lg inline-block transition-all hover:scale-105"
                               style={{
-                                color: "#22c55e",
-                                fontSize: "0.875rem",
-                                fontWeight: "600",
+                                color: "var(--text-secondary)",
+                                backgroundColor: "rgba(100, 116, 139, 0.1)",
                               }}
                             >
-                              {success}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-3 pt-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsEditMode(false);
-                              setSelectedStatus(shipment.status);
-                              setError("");
-                            }}
-                            disabled={isLoading}
-                            className="flex-1 px-6 py-3 rounded-xl font-bold transition-all duration-200 hover:scale-[1.02]"
-                            style={{
-                              backgroundColor: "transparent",
-                              color: "var(--text-secondary)",
-                              border: "2px solid var(--border-medium)",
-                              cursor: isLoading ? "not-allowed" : "pointer",
-                              opacity: isLoading ? 0.5 : 1,
-                            }}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={
-                              isLoading || selectedStatus === shipment.status
-                            }
-                            className="flex-1 px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
-                            style={{
-                              backgroundColor:
-                                isLoading || selectedStatus === shipment.status
-                                  ? "var(--bg-tertiary)"
-                                  : "var(--text-primary)",
-                              color:
-                                isLoading || selectedStatus === shipment.status
-                                  ? "var(--text-secondary)"
-                                  : "var(--text-inverse)",
-                              border: "2px solid var(--border-strong)",
-                              cursor:
-                                isLoading || selectedStatus === shipment.status
-                                  ? "not-allowed"
-                                  : "pointer",
-                              opacity:
-                                isLoading || selectedStatus === shipment.status
-                                  ? 0.5
-                                  : 1,
-                            }}
-                          >
-                            {isLoading ? (
-                              <>
-                                <span className="animate-spin">⏳</span>
-                                Saving...
-                              </>
-                            ) : (
-                              <>
-                                <Save className="w-5 h-5" />
-                                Save Changes
-                              </>
-                            )}
-                          </button>
+                              View Delivery History
+                            </summary>
+                            <div className="mt-4">
+                              <StatusTimeline
+                                statusHistory={shipment.statusHistory}
+                                currentStatus={shipment.status}
+                              />
+                            </div>
+                          </details>
                         </div>
-                      </form>
-
-                      {/* Checkpoints or Notes - OUTSIDE the status form */}
-                      <div
-                        className="pt-6 border-t"
-                        style={{ borderColor: "var(--border-medium)" }}
-                      >
-                        {selectedStatus === "IN_TRANSIT" ||
-                        shipment.status === "IN_TRANSIT" ? (
-                          <CheckpointList
-                            checkpoints={shipment.checkpoints}
-                            onAddCheckpoint={handleAddCheckpoint}
-                            isLoading={isLoading}
-                          />
-                        ) : (
-                          <InternalNotes
-                            notes={shipment.notes}
-                            onAddNote={handleAddNote}
-                            isLoading={isLoading}
-                          />
-                        )}
                       </div>
+                    ) : !isEditMode ? (
+                      <>
+                        <StatusTimeline
+                          statusHistory={shipment.statusHistory}
+                          currentStatus={shipment.status}
+                        />
+
+                        <button
+                          onClick={() => {
+                            setIsEditMode(true);
+                            setSelectedStatus(shipment.status);
+                            setError("");
+                          }}
+                          className="w-full px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg group"
+                          style={{
+                            backgroundColor: "var(--bg-secondary)",
+                            color: "var(--text-primary)",
+                            border: "2px solid var(--border-strong)",
+                          }}
+                        >
+                          <Edit2 className="w-5 h-5 transition-transform group-hover:rotate-12" />
+                          Update Status
+                        </button>
+                      </>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* Status Selector Form */}
+                        <form
+                          onSubmit={handleStatusChange}
+                          className="space-y-6"
+                        >
+                          <div>
+                            <label
+                              className="block text-xs font-bold uppercase tracking-wider mb-3"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              Select New Status
+                            </label>
+                            <select
+                              value={selectedStatus}
+                              onChange={(e) => {
+                                setSelectedStatus(
+                                  e.target.value as ShipmentStatus,
+                                );
+                                setError("");
+                              }}
+                              disabled={isLoading}
+                              className="w-full px-4 py-3 rounded-lg font-medium outline-none transition-all duration-200"
+                              style={{
+                                backgroundColor: "var(--bg-secondary)",
+                                borderColor: "var(--border-medium)",
+                                color: "var(--text-primary)",
+                                border: "2px solid var(--border-medium)",
+                              }}
+                            >
+                              <option value={shipment.status}>
+                                {SHIPMENT_STATUS_LABELS[shipment.status]}{" "}
+                                (Current)
+                              </option>
+                              {validNextStatuses.map(
+                                (status: ShipmentStatus) => (
+                                  <option key={status} value={status}>
+                                    {SHIPMENT_STATUS_LABELS[status]}
+                                  </option>
+                                ),
+                              )}
+                            </select>
+                          </div>
+
+                          {/* Messages */}
+                          {error && (
+                            <div
+                              className="p-4 rounded-xl flex items-center gap-3 animate-shake"
+                              style={{
+                                backgroundColor: "rgba(239, 68, 68, 0.1)",
+                                border: "2px solid rgba(239, 68, 68, 0.3)",
+                              }}
+                            >
+                              <span style={{ fontSize: "1.5rem" }}>⚠️</span>
+                              <span
+                                style={{
+                                  color: "#ef4444",
+                                  fontSize: "0.875rem",
+                                  fontWeight: "600",
+                                }}
+                              >
+                                {error}
+                              </span>
+                            </div>
+                          )}
+
+                          {success && (
+                            <div
+                              className="p-4 rounded-xl flex items-center gap-3 animate-slideIn"
+                              style={{
+                                backgroundColor: "rgba(34, 197, 94, 0.1)",
+                                border: "2px solid rgba(34, 197, 94, 0.3)",
+                              }}
+                            >
+                              <span style={{ fontSize: "1.5rem" }}>✓</span>
+                              <span
+                                style={{
+                                  color: "#22c55e",
+                                  fontSize: "0.875rem",
+                                  fontWeight: "600",
+                                }}
+                              >
+                                {success}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Action Buttons */}
+                          <div className="flex gap-3 pt-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsEditMode(false);
+                                setSelectedStatus(shipment.status);
+                                setError("");
+                              }}
+                              disabled={isLoading}
+                              className="flex-1 px-6 py-3 rounded-xl font-bold transition-all duration-200 hover:scale-[1.02]"
+                              style={{
+                                backgroundColor: "transparent",
+                                color: "var(--text-secondary)",
+                                border: "2px solid var(--border-medium)",
+                                cursor: isLoading ? "not-allowed" : "pointer",
+                                opacity: isLoading ? 0.5 : 1,
+                              }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={
+                                isLoading || selectedStatus === shipment.status
+                              }
+                              className="flex-1 px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
+                              style={{
+                                backgroundColor:
+                                  isLoading ||
+                                  selectedStatus === shipment.status
+                                    ? "var(--bg-tertiary)"
+                                    : "var(--text-primary)",
+                                color:
+                                  isLoading ||
+                                  selectedStatus === shipment.status
+                                    ? "var(--text-secondary)"
+                                    : "var(--text-inverse)",
+                                border: "2px solid var(--border-strong)",
+                                cursor:
+                                  isLoading ||
+                                  selectedStatus === shipment.status
+                                    ? "not-allowed"
+                                    : "pointer",
+                                opacity:
+                                  isLoading ||
+                                  selectedStatus === shipment.status
+                                    ? 0.5
+                                    : 1,
+                              }}
+                            >
+                              {isLoading ? (
+                                <>
+                                  <span className="animate-spin">⏳</span>
+                                  Saving...
+                                </>
+                              ) : (
+                                <>
+                                  <Save className="w-5 h-5" />
+                                  Save Changes
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </form>
+
+                        {/* Checkpoints or Notes - OUTSIDE the status form */}
+                        <div
+                          className="pt-6 border-t"
+                          style={{ borderColor: "var(--border-medium)" }}
+                        >
+                          {selectedStatus === "IN_TRANSIT" ||
+                          shipment.status === "IN_TRANSIT" ? (
+                            <CheckpointList
+                              checkpoints={shipment.checkpoints}
+                              onAddCheckpoint={handleAddCheckpoint}
+                              isLoading={isLoading}
+                            />
+                          ) : (
+                            <InternalNotes
+                              notes={shipment.notes}
+                              onAddNote={handleAddNote}
+                              isLoading={isLoading}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div
+                  className="p-6 rounded-xl border"
+                  style={{
+                    backgroundColor: "var(--bg-secondary)",
+                    borderColor: "var(--border-medium)",
+                  }}
+                >
+                  <h3
+                    className="text-xs font-bold uppercase tracking-wider mb-5 flex items-center gap-2"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    <div
+                      className="h-1 w-8 rounded"
+                      style={{ backgroundColor: "var(--border-strong)" }}
+                    />
+                    Pricing
+                  </h3>
+
+                  <div className="flex items-center justify-between gap-4 mb-4">
+                    <div
+                      className="text-xs font-semibold uppercase tracking-wide"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Amount (₦)
                     </div>
-                  )}
+                    <div
+                      className="text-sm font-bold"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      ₦{(shipment.amount ?? 0).toLocaleString("en-NG")}
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleSaveAmount} className="flex gap-3">
+                    <div className="flex-1">
+                      <input
+                        inputMode="numeric"
+                        value={amountInput}
+                        onChange={(e) => {
+                          // keep digits only
+                          const next = e.target.value.replace(/[^0-9]/g, "");
+                          setAmountInput(next);
+                        }}
+                        placeholder="Set Quotation price"
+                        disabled={isLoading || isSavingAmount}
+                        className="w-full px-4 py-3 rounded-lg font-medium outline-none"
+                        style={{
+                          backgroundColor: "var(--bg-primary)",
+                          border: "2px solid var(--border-medium)",
+                          color: "var(--text-primary)",
+                        }}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={
+                        isLoading ||
+                        isSavingAmount ||
+                        Number(amountInput || "0") === shipment.amount
+                      }
+                      className="px-5 py-3 rounded-lg font-bold transition-all"
+                      style={{
+                        backgroundColor:
+                          isLoading ||
+                          isSavingAmount ||
+                          Number(amountInput || "0") === shipment.amount
+                            ? "var(--bg-tertiary)"
+                            : "var(--text-primary)",
+                        color:
+                          isLoading ||
+                          isSavingAmount ||
+                          Number(amountInput || "0") === shipment.amount
+                            ? "var(--text-secondary)"
+                            : "var(--text-inverse)",
+                        border: "2px solid var(--border-strong)",
+                        cursor:
+                          isLoading ||
+                          isSavingAmount ||
+                          Number(amountInput || "0") === shipment.amount
+                            ? "not-allowed"
+                            : "pointer",
+                        opacity:
+                          isLoading ||
+                          isSavingAmount ||
+                          Number(amountInput || "0") === shipment.amount
+                            ? 0.6
+                            : 1,
+                      }}
+                    >
+                      {isSavingAmount ? "Saving..." : "Save"}
+                    </button>
+                  </form>
                 </div>
               </div>
             )}
