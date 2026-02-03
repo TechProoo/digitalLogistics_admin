@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   X,
-  FileText,
   Mail,
   Phone,
   MapPin,
@@ -325,26 +324,7 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0">
-                    <button
-                      type="button"
-                      disabled={isLoading}
-                      className="px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg disabled:hover:scale-100"
-                      style={{
-                        backgroundColor: isLoading
-                          ? "var(--bg-tertiary)"
-                          : "var(--text-primary)",
-                        color: isLoading
-                          ? "var(--text-secondary)"
-                          : "var(--text-inverse)",
-                        border: "2px solid var(--border-strong)",
-                        cursor: isLoading ? "not-allowed" : "pointer",
-                        opacity: isLoading ? 0.6 : 1,
-                      }}
-                      title="Generate invoice"
-                    >
-                      <FileText className="w-5 h-5" />
-                      Generate Invoice
-                    </button>
+                 
                     <span
                       className="px-4 py-2 rounded-full text-sm font-bold border-2 transition-all duration-200 hover:scale-105"
                       style={{

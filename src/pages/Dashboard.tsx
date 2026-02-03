@@ -40,7 +40,7 @@ const Dashboard = () => {
   const [serviceFilter, setServiceFilter] = useState<string>("all");
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [selectedShipmentId, setSelectedShipmentId] = useState<string | null>(
-    null
+    null,
   );
   const [shipments, setShipments] = useState<ShipmentTableRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -66,13 +66,13 @@ const Dashboard = () => {
   const stats = useMemo(() => {
     const total = shipments.length;
     const inTransit = shipments.filter(
-      (s) => s.statusRaw === "IN_TRANSIT"
+      (s) => s.statusRaw === "IN_TRANSIT",
     ).length;
     const delivered = shipments.filter(
-      (s) => s.statusRaw === "DELIVERED"
+      (s) => s.statusRaw === "DELIVERED",
     ).length;
     const pendingRequests = shipments.filter(
-      (s) => s.statusRaw === "PENDING"
+      (s) => s.statusRaw === "PENDING",
     ).length;
 
     return [
@@ -269,6 +269,7 @@ const Dashboard = () => {
           >
             Recent Shipments
           </h2>
+          <a href=""></a>
 
           {/* Search and Filters */}
           <div className="flex flex-col md:flex-row gap-4">
@@ -512,7 +513,7 @@ const Dashboard = () => {
                           <button
                             onClick={() =>
                               setOpenMenu(
-                                openMenu === shipment.id ? null : shipment.id
+                                openMenu === shipment.id ? null : shipment.id,
                               )
                             }
                             className="p-2 rounded-lg transition-all"
