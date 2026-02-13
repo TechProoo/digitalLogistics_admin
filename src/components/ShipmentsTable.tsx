@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { MoreVertical, Eye, Edit, Trash2 } from "lucide-react";
 
 interface ShipmentsTableProps {
@@ -8,7 +8,6 @@ interface ShipmentsTableProps {
   onDelete: (id: string) => void;
 }
 
-// Table component with improved styling
 export const ShipmentsTable: React.FC<ShipmentsTableProps> = ({
   filteredShipments,
   onViewDetails,
@@ -16,6 +15,7 @@ export const ShipmentsTable: React.FC<ShipmentsTableProps> = ({
   onDelete,
 }) => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const getStatusColor = (status: string) => {
     const statusMap: Record<
@@ -43,16 +43,31 @@ export const ShipmentsTable: React.FC<ShipmentsTableProps> = ({
         label: "Failed",
       },
     };
-    return statusMap[status.toLowerCase()] || statusMap.pending;
+
+    return statusMap[status?.toLowerCase()] || statusMap.pending;
   };
 
-  // Close menu when clicking outside
-  React.useEffect(() => {
-    const handleClickOutside = () => setOpenMenu(null);
-    if (openMenu) {
-      document.addEventListener("click", handleClickOutside);
-      return () => document.removeEventListener("click", handleClickOutside);
-    }
+  // Close dropdown on outside pointerdown (more reliable than click)
+  useEffect(() => {
+    if (!openMenu) return;
+
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        setOpenMenu(null);
+      }
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenMenu(null);
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [openMenu]);
 
   return (
@@ -74,48 +89,23 @@ export const ShipmentsTable: React.FC<ShipmentsTableProps> = ({
                 background: "var(--gradient-surface)",
               }}
             >
-              <th
-                className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider"
-                style={{ color: "var(--text-tertiary)" }}
-              >
-                Tracking ID
-              </th>
-              <th
-                className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider"
-                style={{ color: "var(--text-tertiary)" }}
-              >
-                Customer
-              </th>
-              <th
-                className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider"
-                style={{ color: "var(--text-tertiary)" }}
-              >
-                Phone
-              </th>
-              <th
-                className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider"
-                style={{ color: "var(--text-tertiary)" }}
-              >
-                Route
-              </th>
-              <th
-                className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider"
-                style={{ color: "var(--text-tertiary)" }}
-              >
-                Service
-              </th>
-              <th
-                className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider"
-                style={{ color: "var(--text-tertiary)" }}
-              >
-                Status
-              </th>
-              <th
-                className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider"
-                style={{ color: "var(--text-tertiary)" }}
-              >
-                Created
-              </th>
+              {[
+                "Tracking ID",
+                "Customer",
+                "Phone",
+                "Route",
+                "Service",
+                "Status",
+                "Created",
+              ].map((h) => (
+                <th
+                  key={h}
+                  className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider"
+                  style={{ color: "var(--text-tertiary)" }}
+                >
+                  {h}
+                </th>
+              ))}
               <th
                 className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider"
                 style={{ color: "var(--text-tertiary)" }}
@@ -124,6 +114,7 @@ export const ShipmentsTable: React.FC<ShipmentsTableProps> = ({
               </th>
             </tr>
           </thead>
+
           <tbody>
             {filteredShipments.length === 0 ? (
               <tr>
@@ -168,10 +159,13 @@ export const ShipmentsTable: React.FC<ShipmentsTableProps> = ({
             ) : (
               filteredShipments.map((shipment: any, idx: number) => {
                 const statusColor = getStatusColor(shipment.status);
+
+                const isOpen = openMenu === shipment.id;
+
                 return (
                   <tr
                     key={shipment.id}
-                    className="table-row group cursor-pointer"
+                    className="table-row group"
                     onClick={() => onViewDetails?.(shipment.id)}
                     style={{
                       borderBottom:
@@ -186,6 +180,7 @@ export const ShipmentsTable: React.FC<ShipmentsTableProps> = ({
                     >
                       {shipment.id}
                     </td>
+
                     <td className="px-6 py-4">
                       <div
                         className="font-semibold text-sm mb-0.5"
@@ -200,12 +195,14 @@ export const ShipmentsTable: React.FC<ShipmentsTableProps> = ({
                         {shipment.email}
                       </div>
                     </td>
+
                     <td
                       className="px-6 py-4 text-sm font-medium"
                       style={{ color: "var(--text-secondary)" }}
                     >
                       {shipment.phone}
                     </td>
+
                     <td className="px-6 py-4">
                       <div
                         className="text-sm font-medium"
@@ -214,12 +211,14 @@ export const ShipmentsTable: React.FC<ShipmentsTableProps> = ({
                         {shipment.route}
                       </div>
                     </td>
+
                     <td
                       className="px-6 py-4 text-sm font-medium"
                       style={{ color: "var(--text-secondary)" }}
                     >
                       {shipment.service}
                     </td>
+
                     <td className="px-6 py-4">
                       <span
                         className="status-badge px-3 py-1.5 rounded-full text-xs font-bold inline-block border"
@@ -232,20 +231,25 @@ export const ShipmentsTable: React.FC<ShipmentsTableProps> = ({
                         {statusColor.label}
                       </span>
                     </td>
+
                     <td
                       className="px-6 py-4 text-sm font-medium"
                       style={{ color: "var(--text-secondary)" }}
                     >
                       {shipment.created}
                     </td>
-                    <td className="px-6 py-4 text-center relative">
+
+                    {/* Actions column: prevent row click/hover from fighting dropdown */}
+                    <td
+                      className="px-6 py-4 text-center relative actions-cell"
+                      onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                    >
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenu(
-                            openMenu === shipment.id ? null : shipment.id
-                          );
-                        }}
+                        type="button"
+                        aria-haspopup="menu"
+                        aria-expanded={isOpen}
+                        onClick={() => setOpenMenu(isOpen ? null : shipment.id)}
                         className="action-button p-2.5 rounded-lg transition-all inline-flex items-center justify-center"
                         style={{
                           backgroundColor: "var(--bg-overlay)",
@@ -255,27 +259,28 @@ export const ShipmentsTable: React.FC<ShipmentsTableProps> = ({
                         <MoreVertical className="h-4 w-4" />
                       </button>
 
-                      {/* Dropdown Menu */}
-                      {openMenu === shipment.id && (
+                      {isOpen && (
                         <div
-                          className="dropdown-menu absolute right-0 top-full mt-2 w-48 rounded-xl border overflow-hidden z-20 animate-slideDown"
+                          ref={menuRef}
+                          className="dropdown-menu absolute right-0 top-full mt-2 w-52 rounded-xl border overflow-hidden z-50 animate-slideDown"
                           style={{
                             backgroundColor: "var(--bg-primary)",
                             borderColor: "var(--border-medium)",
                             boxShadow: "var(--shadow-strong)",
                           }}
-                          onClick={(e) => e.stopPropagation()}
+                          role="menu"
                         >
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenMenu(null);
-                              onViewDetails?.(shipment.id);
-                            }}
+                            type="button"
+                            role="menuitem"
                             className="dropdown-item w-full text-left px-4 py-3 text-sm font-semibold transition-all flex items-center gap-3"
                             style={{
                               color: "var(--text-primary)",
                               backgroundColor: "transparent",
+                            }}
+                            onClick={() => {
+                              setOpenMenu(null);
+                              onViewDetails?.(shipment.id);
                             }}
                           >
                             <Eye
@@ -284,17 +289,19 @@ export const ShipmentsTable: React.FC<ShipmentsTableProps> = ({
                             />
                             View Details
                           </button>
+
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenMenu(null);
-                              onEdit?.(shipment.id);
-                            }}
+                            type="button"
+                            role="menuitem"
                             className="dropdown-item w-full text-left px-4 py-3 text-sm font-semibold transition-all flex items-center gap-3"
                             style={{
                               color: "var(--text-primary)",
                               backgroundColor: "transparent",
                               borderTop: "1px solid var(--border-soft)",
+                            }}
+                            onClick={() => {
+                              setOpenMenu(null);
+                              onEdit?.(shipment.id);
                             }}
                           >
                             <Edit
@@ -303,17 +310,19 @@ export const ShipmentsTable: React.FC<ShipmentsTableProps> = ({
                             />
                             Edit Shipment
                           </button>
+
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenMenu(null);
-                              onDelete?.(shipment.id);
-                            }}
-                            className="dropdown-item w-full text-left px-4 py-3 text-sm font-semibold transition-all flex items-center gap-3"
+                            type="button"
+                            role="menuitem"
+                            className="dropdown-item danger w-full text-left px-4 py-3 text-sm font-semibold transition-all flex items-center gap-3"
                             style={{
                               color: "var(--status-failed)",
                               backgroundColor: "transparent",
                               borderTop: "1px solid var(--border-soft)",
+                            }}
+                            onClick={() => {
+                              setOpenMenu(null);
+                              onDelete?.(shipment.id);
                             }}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -331,195 +340,80 @@ export const ShipmentsTable: React.FC<ShipmentsTableProps> = ({
       </div>
 
       <style>{`
-        /* Table Container */
-        .table-container {
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+        .table-container { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 
-        /* Table Header */
-        .table-header-row th {
-          position: relative;
-          user-select: none;
-        }
-
+        .table-header-row th { position: relative; user-select: none; }
         .table-header-row th::after {
           content: "";
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
+          position: absolute; bottom: 0; left: 0; right: 0;
           height: 2px;
-          background: linear-gradient(
-            90deg,
-            transparent,
-            var(--border-medium) 20%,
-            var(--border-medium) 80%,
-            transparent
-          );
+          background: linear-gradient(90deg, transparent, var(--border-medium) 20%, var(--border-medium) 80%, transparent);
           opacity: 0.5;
         }
 
-        /* Table Row Hover */
-        .table-row {
-          position: relative;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
+        .table-row { position: relative; transition: background-color 0.2s cubic-bezier(0.4,0,0.2,1); cursor: pointer; }
         .table-row::before {
-          content: "";
-          position: absolute;
-          left: 0;
-          top: 0;
-          bottom: 0;
-          width: 3px;
-          background: var(--text-primary);
+          content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+          width: 3px; background: var(--text-primary);
           transform: scaleY(0);
-          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: transform 0.2s cubic-bezier(0.4,0,0.2,1);
+        }
+        .table-row:hover { background-color: var(--hover-overlay); }
+        .table-row:hover::before { transform: scaleY(1); }
+        .table-row:hover td:first-child { padding-left: 30px; }
+        .table-row td { transition: padding 0.2s cubic-bezier(0.4,0,0.2,1); }
+
+        /* IMPORTANT: when dropdown is open, stop the row hover vibe from feeling "stronger" */
+        .actions-cell { cursor: default; }
+        .actions-cell * { cursor: default; }
+
+        .status-badge { transition: transform 0.2s cubic-bezier(0.4,0,0.2,1); letter-spacing: 0.05em; }
+        .status-badge:hover { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+
+        .action-button { position: relative; overflow: hidden; }
+        .action-button:hover { background-color: var(--bg-tertiary) !important; transform: scale(1.05); }
+        .action-button:focus-visible {
+          outline: 2px solid var(--border-strong);
+          outline-offset: 3px;
         }
 
-        .table-row:hover {
-          background-color: var(--hover-overlay);
-        }
-
-        .table-row:hover::before {
-          transform: scaleY(1);
-        }
-
-        .table-row:hover td:first-child {
-          padding-left: 30px;
-        }
-
-        .table-row td {
-          transition: padding 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* Status Badge */
-        .status-badge {
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          letter-spacing: 0.05em;
-        }
-
-        .status-badge:hover {
-          transform: scale(1.05);
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-        }
-
-        /* Action Button */
-        .action-button {
-          position: relative;
-          overflow: hidden;
-        }
-
-        .action-button::before {
-          content: "";
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 0;
-          height: 0;
-          border-radius: 50%;
-          background: rgba(0, 0, 0, 0.1);
-          transform: translate(-50%, -50%);
-          transition: width 0.6s, height 0.6s;
-        }
-
-        .action-button:hover {
-          background-color: var(--bg-tertiary);
-          transform: scale(1.05);
-        }
-
-        .action-button:active::before {
-          width: 100px;
-          height: 100px;
-        }
-
-        /* Dropdown Menu */
         @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
         }
+        .animate-slideDown { animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
 
-        .animate-slideDown {
-          animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .dropdown-menu {
-          backdrop-filter: blur(8px);
-        }
-
-        .dropdown-item {
-          position: relative;
-          overflow: hidden;
-        }
-
+        .dropdown-menu { backdrop-filter: blur(10px); transform: translateZ(0); }
+        .dropdown-item { position: relative; overflow: hidden; }
         .dropdown-item::before {
           content: "";
-          position: absolute;
-          left: 0;
-          top: 0;
-          bottom: 0;
-          width: 3px;
-          background: var(--text-primary);
+          position: absolute; left: 0; top: 0; bottom: 0;
+          width: 3px; background: var(--text-primary);
           transform: scaleY(0);
-          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: transform 0.2s cubic-bezier(0.4,0,0.2,1);
         }
-
-        .dropdown-item:hover {
+        .dropdown-item:hover,
+        .dropdown-item:focus-visible {
           background-color: var(--hover-overlay);
           padding-left: 20px;
+          outline: none;
+        }
+        .dropdown-item:hover::before,
+        .dropdown-item:focus-visible::before { transform: scaleY(1); }
+
+        .dropdown-item.danger:hover,
+        .dropdown-item.danger:focus-visible {
+          background-color: rgba(255, 0, 0, 0.08);
         }
 
-        .dropdown-item:hover::before {
-          transform: scaleY(1);
-        }
-
-        /* Empty State */
-        .empty-state-icon {
-          animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-
-        @keyframes pulse {
-          0%,
-          100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.5;
-          }
-        }
-
-        /* Responsive */
         @media (max-width: 1024px) {
-          .table-row:hover td:first-child {
-            padding-left: 24px;
-          }
+          .table-row:hover td:first-child { padding-left: 24px; }
         }
 
-        /* Smooth Scrollbar */
-        .overflow-x-auto::-webkit-scrollbar {
-          height: 8px;
-        }
-
-        .overflow-x-auto::-webkit-scrollbar-track {
-          background: var(--bg-tertiary);
-          border-radius: 4px;
-        }
-
-        .overflow-x-auto::-webkit-scrollbar-thumb {
-          background: var(--border-strong);
-          border-radius: 4px;
-          transition: background 0.2s;
-        }
-
-        .overflow-x-auto::-webkit-scrollbar-thumb:hover {
-          background: var(--text-tertiary);
-        }
+        .overflow-x-auto::-webkit-scrollbar { height: 8px; }
+        .overflow-x-auto::-webkit-scrollbar-track { background: var(--bg-tertiary); border-radius: 4px; }
+        .overflow-x-auto::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; transition: background 0.2s; }
+        .overflow-x-auto::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
       `}</style>
     </div>
   );

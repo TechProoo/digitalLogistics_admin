@@ -12,7 +12,7 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false); // mobile
   const [isCollapsed, setIsCollapsed] = useState(false); // desktop collapsed
   const [isLarge, setIsLarge] = useState<boolean>(
-    typeof window !== "undefined" ? window.innerWidth >= 1024 : true
+    typeof window !== "undefined" ? window.innerWidth >= 1024 : true,
   );
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -84,7 +84,7 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
           "fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity lg:hidden",
           isOpen
             ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
+            : "opacity-0 pointer-events-none",
         )}
       />
 
@@ -100,7 +100,7 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
           !isCollapsed && "lg:w-64",
           // mobile translate
           isOpen ? "translate-x-0" : "-translate-x-full",
-          "lg:translate-x-0"
+          "lg:translate-x-0",
         )}
         style={{
           backgroundColor: "var(--bg-secondary)",
@@ -110,7 +110,7 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
         {/* header */}
         <div
           className={cn(
-            "h-16 flex items-center justify-between px-4 border-b shrink-0"
+            "h-16 flex items-center justify-between px-4 border-b shrink-0",
           )}
           style={{
             borderColor: "var(--border-medium)",
@@ -172,7 +172,7 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
                       isCollapsed
                         ? "justify-center px-0 py-2.5 gap-0"
                         : "gap-3 px-3 py-2.5",
-                      isActive && "shadow-sm active"
+                      isActive && "shadow-sm active",
                     )
                   }
                   style={({ isActive }) => ({
@@ -353,8 +353,8 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
                     ? "Expand sidebar"
                     : "Collapse sidebar"
                   : isOpen
-                  ? "Close menu"
-                  : "Open menu"
+                    ? "Close menu"
+                    : "Open menu"
               }
               className="p-2 rounded-lg hover:bg-accent transition-colors"
             >

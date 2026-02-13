@@ -36,6 +36,7 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
 }) => {
   const [shipment, setShipment] = useState<Shipment | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<ShipmentStatus | "">("");
   const [error, setError] = useState("");
@@ -48,6 +49,7 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
   const [isBackdropEnabled, setIsBackdropEnabled] = useState(false);
   const backdropEnableTimerRef = useRef<number | null>(null);
   const closeResetTimerRef = useRef<number | null>(null);
+  const loadSeqRef = useRef(0);
 
   // Set the "opened" timestamp synchronously to avoid click-through closing
   // the modal before effects run.
@@ -59,13 +61,14 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen && !isLoading) {
+      const isBusy = isLoading || isUpdatingStatus || isSavingAmount;
+      if (e.key === "Escape" && isOpen && !isBusy) {
         handleClose();
       }
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [isOpen, isLoading]);
+  }, [isOpen, isLoading, isUpdatingStatus, isSavingAmount]);
 
   // Handle animation and loading
   useEffect(() => {
@@ -82,6 +85,13 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
     if (isOpen && shipmentId) {
       setIsAnimating(true);
       setIsBackdropEnabled(false);
+      // Ensure we never show stale details while fetching a new shipment.
+      setShipment(null);
+      setIsEditMode(false);
+      setSelectedStatus("");
+      setAmountInput("");
+      setError("");
+      setSuccess("");
       backdropEnableTimerRef.current = window.setTimeout(
         () => setIsBackdropEnabled(true),
         600,
@@ -109,11 +119,15 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
     };
   }, [isOpen, shipmentId]);
 
-  const loadShipment = async () => {
-    setIsLoading(true);
+  const loadShipment = async (opts?: { silent?: boolean }) => {
+    const seq = ++loadSeqRef.current;
+    if (!opts?.silent) {
+      setIsLoading(true);
+    }
     setError("");
     try {
       const shipmentData = await shipmentsApi.getById(shipmentId);
+      if (seq !== loadSeqRef.current) return;
       setShipment(shipmentData);
       setSelectedStatus(shipmentData.status);
       setAmountInput(
@@ -123,9 +137,13 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
           : "",
       );
     } catch (err) {
+      if (seq !== loadSeqRef.current) return;
       setError(getApiErrorMessage(err));
     } finally {
-      setIsLoading(false);
+      if (!opts?.silent) {
+        if (seq !== loadSeqRef.current) return;
+        setIsLoading(false);
+      }
     }
   };
 
@@ -148,17 +166,22 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
 
     setIsSavingAmount(true);
     setError("");
+    let didSucceed = false;
     try {
       await shipmentsApi.updateAmount(shipment.id, { amount: nextAmount });
-      setSuccess("✓ Amount updated successfully");
-      setTimeout(() => setSuccess(""), 2000);
       onUpdate?.();
       await loadShipment();
+      didSucceed = true;
     } catch (err) {
       setError(getApiErrorMessage(err));
       setTimeout(() => setError(""), 3000);
     } finally {
       setIsSavingAmount(false);
+    }
+
+    if (didSucceed) {
+      setSuccess("✓ Amount updated successfully");
+      setTimeout(() => setSuccess(""), 2000);
     }
   };
 
@@ -171,7 +194,7 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
 
   const handleBackdropClick = () => {
     if (!isBackdropEnabled) return;
-    if (isLoading) return;
+    if (isLoading || isUpdatingStatus || isSavingAmount) return;
     // Avoid the navigation click (from a previous screen) immediately closing the modal
     // when we auto-open via URL params.
     if (Date.now() - openedAtRef.current < 500) return;
@@ -180,6 +203,17 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
 
   const handleStatusChange = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (
+      shipment?.status === "PENDING" &&
+      (!Number.isFinite(shipment.amount) || shipment.amount <= 0)
+    ) {
+      setError(
+        "Please set an amount first so the client can download an invoice",
+      );
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
 
     if (!shipment || !selectedStatus || selectedStatus === shipment.status) {
       setError("Please select a different status");
@@ -194,24 +228,49 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
       return;
     }
 
-    setIsLoading(true);
+    const previousShipment = shipment;
+    const nextStatus = selectedStatus as ShipmentStatus;
+
+    // Optimistic UI: update immediately so the header badge/timeline reflect the new status.
+    const optimisticTimestamp = new Date().toISOString();
+    setShipment((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        status: nextStatus,
+        statusHistory: [
+          ...prev.statusHistory,
+          {
+            id: `optimistic-${Date.now()}`,
+            shipmentId: prev.id,
+            status: nextStatus,
+            timestamp: optimisticTimestamp,
+          },
+        ],
+      };
+    });
+    setSelectedStatus(nextStatus);
+    setIsEditMode(false);
+
+    setIsUpdatingStatus(true);
     setError("");
     try {
       await shipmentsApi.updateStatus(shipment.id, {
-        status: selectedStatus,
+        status: nextStatus,
       });
       setSuccess("✓ Status updated successfully");
-      setTimeout(() => {
-        setIsEditMode(false);
-        setSuccess("");
-        onUpdate?.();
-        loadShipment();
-      }, 2000);
+      setTimeout(() => setSuccess(""), 1500);
+      onUpdate?.();
+      await loadShipment({ silent: true });
     } catch (err) {
+      setShipment(previousShipment);
+      setSelectedStatus(previousShipment.status);
+      setIsEditMode(true);
+
       setError(getApiErrorMessage(err));
       setTimeout(() => setError(""), 3000);
     } finally {
-      setIsLoading(false);
+      setIsUpdatingStatus(false);
     }
   };
 
@@ -245,12 +304,20 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
 
   if (!isOpen) return null;
 
+  const isBusy = isLoading || isUpdatingStatus || isSavingAmount;
+
   const statusColors = shipment
     ? SHIPMENT_STATUS_COLORS[shipment.status]
     : null;
   const validNextStatuses = shipment
     ? VALID_STATUS_TRANSITIONS[shipment.status] || []
     : [];
+  const isAmountSet = shipment
+    ? Number.isFinite(shipment.amount) && shipment.amount > 0
+    : false;
+  const isStatusUpdateBlocked = shipment
+    ? shipment.status === "PENDING" && !isAmountSet
+    : false;
 
   return (
     <>
@@ -271,7 +338,7 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
-          className="w-full max-w-6xl max-h-[92vh] rounded-2xl overflow-hidden pointer-events-auto transition-all duration-400"
+          className="relative w-full max-w-6xl max-h-[92vh] rounded-2xl overflow-hidden pointer-events-auto transition-all duration-400"
           style={{
             backgroundColor: "var(--bg-primary)",
             border: "1px solid var(--border-medium)",
@@ -285,6 +352,37 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
           }}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Busy overlay (blur + blocks interactions) */}
+          {isBusy && (
+            <div
+              className="absolute inset-0 z-30 flex items-center justify-center"
+              style={{
+                backgroundColor: "rgba(15, 23, 42, 0.25)",
+                backdropFilter: "blur(6px)",
+              }}
+            >
+              <div
+                className="px-5 py-4 rounded-xl flex items-center gap-3"
+                style={{
+                  backgroundColor: "rgba(255, 255, 255, 0.08)",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                <span className="animate-spin" style={{ fontSize: "1.25rem" }}>
+                  ⏳
+                </span>
+                <span className="text-sm font-bold">
+                  {isLoading
+                    ? "Loading details…"
+                    : isUpdatingStatus
+                      ? "Updating status…"
+                      : "Updating amount…"}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Header */}
           <div
             className="sticky top-0 z-20 p-6 lg:p-8 border-b"
@@ -324,7 +422,6 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0">
-                 
                     <span
                       className="px-4 py-2 rounded-full text-sm font-bold border-2 transition-all duration-200 hover:scale-105"
                       style={{
@@ -338,14 +435,14 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
 
                     <button
                       onClick={handleClose}
-                      disabled={isLoading}
+                      disabled={isBusy}
                       className="p-2.5 rounded-xl transition-all duration-200 hover:rotate-90"
                       style={{
                         color: "var(--text-secondary)",
                         backgroundColor: "var(--bg-overlay)",
                         border: "1px solid var(--border-medium)",
-                        cursor: isLoading ? "not-allowed" : "pointer",
-                        opacity: isLoading ? 0.5 : 1,
+                        cursor: isBusy ? "not-allowed" : "pointer",
+                        opacity: isBusy ? 0.5 : 1,
                       }}
                       title="Close (Esc)"
                     >
@@ -395,6 +492,100 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
               <div className="p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 ">
                 {/* Left Column - Information */}
                 <div className="space-y-8">
+                  <div
+                    className="p-6 rounded-xl border"
+                    style={{
+                      backgroundColor: "var(--bg-secondary)",
+                      borderColor: "var(--border-medium)",
+                    }}
+                  >
+                    <h3
+                      className="text-xs font-bold uppercase tracking-wider mb-5 flex items-center gap-2"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      <div
+                        className="h-1 w-8 rounded"
+                        style={{ backgroundColor: "var(--border-strong)" }}
+                      />
+                      Pricing
+                    </h3>
+
+                    <div className="flex items-center justify-between gap-4 mb-4">
+                      <div
+                        className="text-xs font-semibold uppercase tracking-wide"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        Amount (₦)
+                      </div>
+                      <div
+                        className="text-sm font-bold"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        ₦{(shipment.amount ?? 0).toLocaleString("en-NG")}
+                      </div>
+                    </div>
+
+                    <form onSubmit={handleSaveAmount} className="flex gap-3">
+                      <div className="flex-1">
+                        <input
+                          inputMode="numeric"
+                          value={amountInput}
+                          onChange={(e) => {
+                            // keep digits only
+                            const next = e.target.value.replace(/[^0-9]/g, "");
+                            setAmountInput(next);
+                          }}
+                          placeholder="Set Quotation price"
+                          disabled={isLoading || isSavingAmount}
+                          className="w-full px-4 py-3 rounded-lg font-medium outline-none"
+                          style={{
+                            backgroundColor: "var(--bg-primary)",
+                            border: "2px solid var(--border-medium)",
+                            color: "var(--text-primary)",
+                          }}
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={
+                          isLoading ||
+                          isSavingAmount ||
+                          Number(amountInput || "0") === shipment.amount
+                        }
+                        className="px-5 py-3 rounded-lg font-bold transition-all"
+                        style={{
+                          backgroundColor:
+                            isLoading ||
+                            isSavingAmount ||
+                            Number(amountInput || "0") === shipment.amount
+                              ? "var(--bg-tertiary)"
+                              : "var(--text-primary)",
+                          color:
+                            isLoading ||
+                            isSavingAmount ||
+                            Number(amountInput || "0") === shipment.amount
+                              ? "var(--text-secondary)"
+                              : "var(--text-inverse)",
+                          border: "2px solid var(--border-strong)",
+                          cursor:
+                            isLoading ||
+                            isSavingAmount ||
+                            Number(amountInput || "0") === shipment.amount
+                              ? "not-allowed"
+                              : "pointer",
+                          opacity:
+                            isLoading ||
+                            isSavingAmount ||
+                            Number(amountInput || "0") === shipment.amount
+                              ? 0.6
+                              : 1,
+                        }}
+                      >
+                        {isSavingAmount ? "Saving..." : "Save"}
+                      </button>
+                    </form>
+                  </div>
+
                   {/* Customer Information */}
                   <InfoSection
                     title="Customer Information"
@@ -475,6 +666,73 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                 <div className="sticky top-2">
                   {" "}
                   <div className="space-y-6 sticky top-0">
+                    {(isUpdatingStatus || isSavingAmount) && !error && (
+                      <div
+                        className="p-4 rounded-xl flex items-center gap-3"
+                        style={{
+                          backgroundColor: "rgba(59, 130, 246, 0.1)",
+                          border: "2px solid rgba(59, 130, 246, 0.25)",
+                        }}
+                      >
+                        <span className="animate-spin" style={{ fontSize: "1.25rem" }}>
+                          ⏳
+                        </span>
+                        <span
+                          style={{
+                            color: "#3b82f6",
+                            fontSize: "0.875rem",
+                            fontWeight: "700",
+                          }}
+                        >
+                          {isUpdatingStatus
+                            ? "Updating status…"
+                            : "Updating amount…"}
+                        </span>
+                      </div>
+                    )}
+
+                    {error && (
+                      <div
+                        className="p-4 rounded-xl flex items-center gap-3 animate-shake"
+                        style={{
+                          backgroundColor: "rgba(239, 68, 68, 0.1)",
+                          border: "2px solid rgba(239, 68, 68, 0.3)",
+                        }}
+                      >
+                        <span style={{ fontSize: "1.5rem" }}>⚠️</span>
+                        <span
+                          style={{
+                            color: "#ef4444",
+                            fontSize: "0.875rem",
+                            fontWeight: "600",
+                          }}
+                        >
+                          {error}
+                        </span>
+                      </div>
+                    )}
+
+                    {success && (
+                      <div
+                        className="p-4 rounded-xl flex items-center gap-3 animate-slideIn"
+                        style={{
+                          backgroundColor: "rgba(34, 197, 94, 0.1)",
+                          border: "2px solid rgba(34, 197, 94, 0.3)",
+                        }}
+                      >
+                        <span style={{ fontSize: "1.5rem" }}>✓</span>
+                        <span
+                          style={{
+                            color: "#22c55e",
+                            fontSize: "0.875rem",
+                            fontWeight: "600",
+                          }}
+                        >
+                          {success}
+                        </span>
+                      </div>
+                    )}
+
                     {/* Delivered Status - Special UI */}
                     {shipment.status === "DELIVERED" && !isEditMode ? (
                       <div
@@ -604,15 +862,25 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
 
                         <button
                           onClick={() => {
+                            if (isStatusUpdateBlocked) {
+                              setError(
+                                "Please set an amount first so the client can download an invoice",
+                              );
+                              setTimeout(() => setError(""), 3000);
+                              return;
+                            }
                             setIsEditMode(true);
                             setSelectedStatus(shipment.status);
                             setError("");
                           }}
+                          disabled={isUpdatingStatus}
                           className="w-full px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg group"
                           style={{
                             backgroundColor: "var(--bg-secondary)",
                             color: "var(--text-primary)",
                             border: "2px solid var(--border-strong)",
+                            cursor: isUpdatingStatus ? "not-allowed" : "pointer",
+                            opacity: isUpdatingStatus ? 0.6 : 1,
                           }}
                         >
                           <Edit2 className="w-5 h-5 transition-transform group-hover:rotate-12" />
@@ -641,7 +909,7 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                                 );
                                 setError("");
                               }}
-                              disabled={isLoading}
+                              disabled={isLoading || isUpdatingStatus}
                               className="w-full px-4 py-3 rounded-lg font-medium outline-none transition-all duration-200"
                               style={{
                                 backgroundColor: "var(--bg-secondary)",
@@ -664,49 +932,6 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                             </select>
                           </div>
 
-                          {/* Messages */}
-                          {error && (
-                            <div
-                              className="p-4 rounded-xl flex items-center gap-3 animate-shake"
-                              style={{
-                                backgroundColor: "rgba(239, 68, 68, 0.1)",
-                                border: "2px solid rgba(239, 68, 68, 0.3)",
-                              }}
-                            >
-                              <span style={{ fontSize: "1.5rem" }}>⚠️</span>
-                              <span
-                                style={{
-                                  color: "#ef4444",
-                                  fontSize: "0.875rem",
-                                  fontWeight: "600",
-                                }}
-                              >
-                                {error}
-                              </span>
-                            </div>
-                          )}
-
-                          {success && (
-                            <div
-                              className="p-4 rounded-xl flex items-center gap-3 animate-slideIn"
-                              style={{
-                                backgroundColor: "rgba(34, 197, 94, 0.1)",
-                                border: "2px solid rgba(34, 197, 94, 0.3)",
-                              }}
-                            >
-                              <span style={{ fontSize: "1.5rem" }}>✓</span>
-                              <span
-                                style={{
-                                  color: "#22c55e",
-                                  fontSize: "0.875rem",
-                                  fontWeight: "600",
-                                }}
-                              >
-                                {success}
-                              </span>
-                            </div>
-                          )}
-
                           {/* Action Buttons */}
                           <div className="flex gap-3 pt-2">
                             <button
@@ -716,14 +941,17 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                                 setSelectedStatus(shipment.status);
                                 setError("");
                               }}
-                              disabled={isLoading}
+                              disabled={isLoading || isUpdatingStatus}
                               className="flex-1 px-6 py-3 rounded-xl font-bold transition-all duration-200 hover:scale-[1.02]"
                               style={{
                                 backgroundColor: "transparent",
                                 color: "var(--text-secondary)",
                                 border: "2px solid var(--border-medium)",
-                                cursor: isLoading ? "not-allowed" : "pointer",
-                                opacity: isLoading ? 0.5 : 1,
+                                cursor:
+                                  isLoading || isUpdatingStatus
+                                    ? "not-allowed"
+                                    : "pointer",
+                                opacity: isLoading || isUpdatingStatus ? 0.5 : 1,
                               }}
                             >
                               Cancel
@@ -731,34 +959,40 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                             <button
                               type="submit"
                               disabled={
-                                isLoading || selectedStatus === shipment.status
+                                isLoading ||
+                                isUpdatingStatus ||
+                                selectedStatus === shipment.status
                               }
                               className="flex-1 px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
                               style={{
                                 backgroundColor:
                                   isLoading ||
+                                  isUpdatingStatus ||
                                   selectedStatus === shipment.status
                                     ? "var(--bg-tertiary)"
                                     : "var(--text-primary)",
                                 color:
                                   isLoading ||
+                                  isUpdatingStatus ||
                                   selectedStatus === shipment.status
                                     ? "var(--text-secondary)"
                                     : "var(--text-inverse)",
                                 border: "2px solid var(--border-strong)",
                                 cursor:
                                   isLoading ||
+                                  isUpdatingStatus ||
                                   selectedStatus === shipment.status
                                     ? "not-allowed"
                                     : "pointer",
                                 opacity:
                                   isLoading ||
+                                  isUpdatingStatus ||
                                   selectedStatus === shipment.status
                                     ? 0.5
                                     : 1,
                               }}
                             >
-                              {isLoading ? (
+                              {isUpdatingStatus ? (
                                 <>
                                   <span className="animate-spin">⏳</span>
                                   Saving...
@@ -796,100 +1030,6 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                       </div>
                     )}
                   </div>
-                </div>
-
-                <div
-                  className="p-6 rounded-xl border"
-                  style={{
-                    backgroundColor: "var(--bg-secondary)",
-                    borderColor: "var(--border-medium)",
-                  }}
-                >
-                  <h3
-                    className="text-xs font-bold uppercase tracking-wider mb-5 flex items-center gap-2"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    <div
-                      className="h-1 w-8 rounded"
-                      style={{ backgroundColor: "var(--border-strong)" }}
-                    />
-                    Pricing
-                  </h3>
-
-                  <div className="flex items-center justify-between gap-4 mb-4">
-                    <div
-                      className="text-xs font-semibold uppercase tracking-wide"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Amount (₦)
-                    </div>
-                    <div
-                      className="text-sm font-bold"
-                      style={{ color: "var(--text-primary)" }}
-                    >
-                      ₦{(shipment.amount ?? 0).toLocaleString("en-NG")}
-                    </div>
-                  </div>
-
-                  <form onSubmit={handleSaveAmount} className="flex gap-3">
-                    <div className="flex-1">
-                      <input
-                        inputMode="numeric"
-                        value={amountInput}
-                        onChange={(e) => {
-                          // keep digits only
-                          const next = e.target.value.replace(/[^0-9]/g, "");
-                          setAmountInput(next);
-                        }}
-                        placeholder="Set Quotation price"
-                        disabled={isLoading || isSavingAmount}
-                        className="w-full px-4 py-3 rounded-lg font-medium outline-none"
-                        style={{
-                          backgroundColor: "var(--bg-primary)",
-                          border: "2px solid var(--border-medium)",
-                          color: "var(--text-primary)",
-                        }}
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={
-                        isLoading ||
-                        isSavingAmount ||
-                        Number(amountInput || "0") === shipment.amount
-                      }
-                      className="px-5 py-3 rounded-lg font-bold transition-all"
-                      style={{
-                        backgroundColor:
-                          isLoading ||
-                          isSavingAmount ||
-                          Number(amountInput || "0") === shipment.amount
-                            ? "var(--bg-tertiary)"
-                            : "var(--text-primary)",
-                        color:
-                          isLoading ||
-                          isSavingAmount ||
-                          Number(amountInput || "0") === shipment.amount
-                            ? "var(--text-secondary)"
-                            : "var(--text-inverse)",
-                        border: "2px solid var(--border-strong)",
-                        cursor:
-                          isLoading ||
-                          isSavingAmount ||
-                          Number(amountInput || "0") === shipment.amount
-                            ? "not-allowed"
-                            : "pointer",
-                        opacity:
-                          isLoading ||
-                          isSavingAmount ||
-                          Number(amountInput || "0") === shipment.amount
-                            ? 0.6
-                            : 1,
-                      }}
-                    >
-                      {isSavingAmount ? "Saving..." : "Save"}
-                    </button>
-                  </form>
                 </div>
               </div>
             )}

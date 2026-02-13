@@ -120,7 +120,7 @@ const Shipments = () => {
   const [serviceFilter, setServiceFilter] = useState<ServiceFilter>("All");
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [selectedShipmentId, setSelectedShipmentId] = useState<string | null>(
-    null
+    null,
   );
   const [shipments, setShipments] = useState<ShipmentTableRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -514,7 +514,7 @@ const Shipments = () => {
                         <button
                           onClick={() =>
                             setOpenMenu(
-                              openMenu === shipment.id ? null : shipment.id
+                              openMenu === shipment.id ? null : shipment.id,
                             )
                           }
                           className="p-2 rounded-lg transition-colors"
