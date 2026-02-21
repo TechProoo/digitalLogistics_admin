@@ -674,7 +674,10 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                           border: "2px solid rgba(59, 130, 246, 0.25)",
                         }}
                       >
-                        <span className="animate-spin" style={{ fontSize: "1.25rem" }}>
+                        <span
+                          className="animate-spin"
+                          style={{ fontSize: "1.25rem" }}
+                        >
                           ⏳
                         </span>
                         <span
@@ -879,7 +882,9 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                             backgroundColor: "var(--bg-secondary)",
                             color: "var(--text-primary)",
                             border: "2px solid var(--border-strong)",
-                            cursor: isUpdatingStatus ? "not-allowed" : "pointer",
+                            cursor: isUpdatingStatus
+                              ? "not-allowed"
+                              : "pointer",
                             opacity: isUpdatingStatus ? 0.6 : 1,
                           }}
                         >
@@ -951,7 +956,8 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                                   isLoading || isUpdatingStatus
                                     ? "not-allowed"
                                     : "pointer",
-                                opacity: isLoading || isUpdatingStatus ? 0.5 : 1,
+                                opacity:
+                                  isLoading || isUpdatingStatus ? 0.5 : 1,
                               }}
                             >
                               Cancel

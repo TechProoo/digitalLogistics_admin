@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Home, Package, LogOut, Menu, X, Users } from "lucide-react";
+import { Home, Package, LogOut, Menu, X, Users, IdCard } from "lucide-react";
 import { authApi } from "../services/authApi";
 
 // simple className merger
@@ -69,11 +69,27 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
       to: "/customers",
       icon: <Users className="h-5 w-5" />,
     },
+    {
+      title: "Drivers",
+      to: "/drivers",
+      icon: <IdCard className="h-5 w-5" />,
+    },
+  ];
+
+  const driversSubmenu = [
+    { title: "Overview", to: "/drivers" },
+    { title: "Applications", to: "/drivers/applications" },
+    { title: "Dispatch", to: "/drivers/dispatch" },
+    { title: "Directory", to: "/drivers/directory" },
   ];
 
   const location = useLocation();
   const headerTitle =
-    mainMenu.find((m) => m.to === location.pathname)?.title || "Dashboard";
+    (location.pathname === "/drivers"
+      ? "Drivers"
+      : driversSubmenu.find((m) => m.to === location.pathname)?.title) ||
+    mainMenu.find((m) => m.to === location.pathname)?.title ||
+    (location.pathname.startsWith("/drivers") ? "Drivers" : "Dashboard");
 
   return (
     <div className="flex min-h-screen bg-muted/50">
@@ -125,7 +141,7 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
                 </div>
                 <div className="min-w-0">
                   <div className="text-lg font-bold text-primary truncate">
-                    Digital Logistics
+                    Digital Delivery
                   </div>
                   <div className="text-xs text-muted-foreground truncate">
                     Logistics Platform
@@ -161,75 +177,127 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
             )}
             <div className="space-y-1">
               {mainMenu.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === "/"}
-                  onClick={() => !isLarge && setIsOpen(false)} // Close mobile menu on navigation
-                  className={({ isActive }) =>
-                    cn(
-                      "group relative flex items-center rounded-lg transition-all duration-200 overflow-hidden",
-                      isCollapsed
-                        ? "justify-center px-0 py-2.5 gap-0"
-                        : "gap-3 px-3 py-2.5",
-                      isActive && "shadow-sm active",
-                    )
-                  }
-                  style={({ isActive }) => ({
-                    backgroundColor: isActive
-                      ? "var(--bg-tertiary)"
-                      : "transparent",
-                    color: isActive
-                      ? "var(--text-primary)"
-                      : "var(--text-secondary)",
-                  })}
-                  onMouseEnter={(e) => {
-                    const isActive =
-                      e.currentTarget.getAttribute("aria-current") === "page";
-                    if (!isActive) {
-                      e.currentTarget.style.backgroundColor =
-                        "rgba(46,196,182,0.08)";
-                      e.currentTarget.style.color = "var(--accent-teal)";
+                <div key={item.to}>
+                  <NavLink
+                    to={item.to}
+                    end={item.to === "/"}
+                    onClick={() => !isLarge && setIsOpen(false)} // Close mobile menu on navigation
+                    className={({ isActive }) =>
+                      cn(
+                        "group relative flex items-center rounded-lg transition-all duration-200 overflow-hidden",
+                        isCollapsed
+                          ? "justify-center px-0 py-2.5 gap-0"
+                          : "gap-3 px-3 py-2.5",
+                        isActive && "shadow-sm active",
+                      )
                     }
-                  }}
-                  onMouseLeave={(e) => {
-                    const isActive =
-                      e.currentTarget.getAttribute("aria-current") === "page";
-                    e.currentTarget.style.backgroundColor = isActive
-                      ? "var(--bg-tertiary)"
-                      : "transparent";
-                    e.currentTarget.style.color = isActive
-                      ? "var(--text-primary)"
-                      : "var(--text-secondary)";
-                  }}
-                >
-                  <span
-                    className="shrink-0 flex items-center justify-center transition-colors duration-200"
-                    style={{ color: "inherit" }}
+                    style={({ isActive }) => ({
+                      backgroundColor: isActive
+                        ? "var(--bg-tertiary)"
+                        : "transparent",
+                      color: isActive
+                        ? "var(--text-primary)"
+                        : "var(--text-secondary)",
+                    })}
+                    onMouseEnter={(e) => {
+                      const isActive =
+                        e.currentTarget.getAttribute("aria-current") === "page";
+                      if (!isActive) {
+                        e.currentTarget.style.backgroundColor =
+                          "rgba(46,196,182,0.08)";
+                        e.currentTarget.style.color = "var(--accent-teal)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      const isActive =
+                        e.currentTarget.getAttribute("aria-current") === "page";
+                      e.currentTarget.style.backgroundColor = isActive
+                        ? "var(--bg-tertiary)"
+                        : "transparent";
+                      e.currentTarget.style.color = isActive
+                        ? "var(--text-primary)"
+                        : "var(--text-secondary)";
+                    }}
                   >
-                    {item.icon}
-                  </span>
+                    <span
+                      className="shrink-0 flex items-center justify-center transition-colors duration-200"
+                      style={{ color: "inherit" }}
+                    >
+                      {item.icon}
+                    </span>
 
-                  <span
-                    className={cn("font-medium", isCollapsed && "lg:sr-only")}
-                  >
-                    {item.title}
-                  </span>
-
-                  {/* Tooltip for collapsed desktop view */}
-                  {isCollapsed && isLarge && (
-                    <div
-                      className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2 py-1 text-sm rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transform transition-all duration-200 group-hover:translate-x-1 shadow-lg"
-                      style={{
-                        backgroundColor: "var(--bg-overlay)",
-                        color: "var(--text-primary)",
-                        border: "1px solid var(--border-medium)",
-                      }}
+                    <span
+                      className={cn("font-medium", isCollapsed && "lg:sr-only")}
                     >
                       {item.title}
+                    </span>
+
+                    {/* Tooltip for collapsed desktop view */}
+                    {isCollapsed && isLarge && (
+                      <div
+                        className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2 py-1 text-sm rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transform transition-all duration-200 group-hover:translate-x-1 shadow-lg"
+                        style={{
+                          backgroundColor: "var(--bg-overlay)",
+                          color: "var(--text-primary)",
+                          border: "1px solid var(--border-medium)",
+                        }}
+                      >
+                        {item.title}
+                      </div>
+                    )}
+                  </NavLink>
+
+                  {item.title === "Drivers" && !isCollapsed ? (
+                    <div className="mt-1 ml-10 space-y-1">
+                      {driversSubmenu
+                        .filter((s) => s.to !== "/drivers")
+                        .map((sub) => (
+                          <NavLink
+                            key={sub.to}
+                            to={sub.to}
+                            onClick={() => !isLarge && setIsOpen(false)}
+                            className={({ isActive }) =>
+                              cn(
+                                "block rounded-lg px-3 py-2 text-sm font-medium transition",
+                                isActive && "shadow-sm",
+                              )
+                            }
+                            style={({ isActive }) => ({
+                              backgroundColor: isActive
+                                ? "var(--bg-tertiary)"
+                                : "transparent",
+                              color: isActive
+                                ? "var(--text-primary)"
+                                : "var(--text-secondary)",
+                            })}
+                            onMouseEnter={(e) => {
+                              const isActive =
+                                e.currentTarget.getAttribute("aria-current") ===
+                                "page";
+                              if (!isActive) {
+                                e.currentTarget.style.backgroundColor =
+                                  "rgba(46,196,182,0.08)";
+                                e.currentTarget.style.color = "var(--accent-teal)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              const isActive =
+                                e.currentTarget.getAttribute("aria-current") ===
+                                "page";
+                              e.currentTarget.style.backgroundColor = isActive
+                                ? "var(--bg-tertiary)"
+                                : "transparent";
+                              e.currentTarget.style.color = isActive
+                                ? "var(--text-primary)"
+                                : "var(--text-secondary)";
+                            }}
+                          >
+                            {sub.title}
+                          </NavLink>
+                        ))}
                     </div>
-                  )}
-                </NavLink>
+                  ) : null}
+                </div>
               ))}
             </div>
           </div>

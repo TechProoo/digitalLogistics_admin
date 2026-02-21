@@ -50,6 +50,8 @@ export type Shipment = {
   serviceType: ServiceType;
   status: ShipmentStatus;
 
+  driverId?: string | null;
+
   pickupLocation: string;
   destinationLocation: string;
 

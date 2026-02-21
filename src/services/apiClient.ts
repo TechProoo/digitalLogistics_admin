@@ -12,6 +12,10 @@ function resolveBaseUrl() {
   return url || "http://localhost:3000";
 }
 
+export function getApiBaseUrl(): string {
+  return resolveBaseUrl();
+}
+
 export function getApiErrorMessage(error: unknown): string {
   const err = error as AxiosError<any>;
 
@@ -62,7 +66,7 @@ export function createApiClient(): AxiosInstance {
       }
       return response;
     },
-    (error) => Promise.reject(error)
+    (error) => Promise.reject(error),
   );
 
   return api;

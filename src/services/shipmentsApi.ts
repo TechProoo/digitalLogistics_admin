@@ -32,6 +32,10 @@ export type UpdateShipmentAmountBody = {
   amount: number;
 };
 
+export type AssignDriverBody = {
+  driverId: string;
+};
+
 export const shipmentsApi = {
   async list(params?: ListShipmentsParams): Promise<Shipment[]> {
     const res = await apiClient.get<Shipment[]>("/shipments", { params });
@@ -83,6 +87,11 @@ export const shipmentsApi = {
 
   async remove(id: string): Promise<{ message: string }> {
     const res = await apiClient.delete<{ message: string }>(`/shipments/${id}`);
+    return res.data;
+  },
+
+  async assignDriver(id: string, body: AssignDriverBody): Promise<Shipment> {
+    const res = await apiClient.patch<Shipment>(`/shipments/${id}/assign`, body);
     return res.data;
   },
 };
