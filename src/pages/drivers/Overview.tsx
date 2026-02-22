@@ -138,9 +138,7 @@ export default function DriversOverview() {
     return apps
       .filter((a) => a.applicationStatus === "PENDING")
       .slice()
-      .sort((a, b) =>
-        String(b.createdAt).localeCompare(String(a.createdAt)),
-      )
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
       .slice(0, 6);
   }, [apps]);
 
@@ -166,7 +164,8 @@ export default function DriversOverview() {
               Drivers
             </h1>
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              Overview of applications, driver availability, and attention items.
+              Overview of applications, driver availability, and attention
+              items.
             </p>
           </div>
 
@@ -314,7 +313,10 @@ export default function DriversOverview() {
               </NavLink>
             </div>
 
-            <div className="divide-y" style={{ borderColor: "var(--border-medium)" }}>
+            <div
+              className="divide-y"
+              style={{ borderColor: "var(--border-medium)" }}
+            >
               {newestPending.length === 0 ? (
                 <div
                   className="px-5 py-6 text-sm"
@@ -346,7 +348,9 @@ export default function DriversOverview() {
                         <Pill
                           label={
                             a.applicationStatus
-                              ? DRIVER_APPLICATION_STATUS_LABELS[a.applicationStatus]
+                              ? DRIVER_APPLICATION_STATUS_LABELS[
+                                  a.applicationStatus
+                                ]
                               : "Application"
                           }
                           tone={appTone(a)}
@@ -369,7 +373,7 @@ export default function DriversOverview() {
             className="rounded-xl border overflow-hidden"
             style={{
               backgroundColor: "var(--bg-secondary)",
-              borderColor: "var(--border-medium)" ,
+              borderColor: "var(--border-medium)",
             }}
           >
             <div
@@ -399,7 +403,10 @@ export default function DriversOverview() {
               </NavLink>
             </div>
 
-            <div className="divide-y" style={{ borderColor: "var(--border-medium)" }}>
+            <div
+              className="divide-y"
+              style={{ borderColor: "var(--border-medium)" }}
+            >
               {needsAttention.length === 0 ? (
                 <div
                   className="px-5 py-6 text-sm"
@@ -429,7 +436,9 @@ export default function DriversOverview() {
                         {a.applicationStatus ? (
                           <Pill
                             label={
-                              DRIVER_APPLICATION_STATUS_LABELS[a.applicationStatus]
+                              DRIVER_APPLICATION_STATUS_LABELS[
+                                a.applicationStatus
+                              ]
                             }
                             tone={appTone(a)}
                           />

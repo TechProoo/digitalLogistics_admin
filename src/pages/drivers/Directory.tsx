@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "../../components/sidebar";
 import { driversApi } from "../../services/driversApi";
 import { getApiBaseUrl, getApiErrorMessage } from "../../services/apiClient";
@@ -13,7 +13,20 @@ import {
   DRIVER_STATUS_LABELS,
   VEHICLE_TYPE_LABELS,
 } from "../../types/driver";
-import { Bike, Car, FileText, Search, Shield, X } from "lucide-react";
+import {
+  Bike,
+  Car,
+  FileText,
+  Search,
+  Shield,
+  X,
+  RefreshCcw,
+  ChevronRight,
+  AlertTriangle,
+  CheckCircle2,
+  CircleDashed,
+  Ban,
+} from "lucide-react";
 
 function cn(...classes: Array<string | boolean | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -41,64 +54,181 @@ function vehicleIcon(type: VehicleType) {
   return type === "VAN" ? Car : Bike;
 }
 
-function Pill({
-  label,
-  tone,
-}: {
-  label: string;
-  tone: "teal" | "slate" | "amber" | "green" | "red";
-}) {
-  const style: React.CSSProperties =
-    tone === "teal"
-      ? {
-          backgroundColor: "rgba(46, 196, 182, 0.12)",
-          border: "1px solid rgba(46, 196, 182, 0.30)",
-          color: "var(--accent-teal)",
-        }
-      : tone === "amber"
-        ? {
-            backgroundColor: "rgba(245, 158, 11, 0.12)",
-            border: "1px solid rgba(245, 158, 11, 0.30)",
-            color: "#f59e0b",
-          }
-        : tone === "green"
-          ? {
-              backgroundColor: "rgba(34, 197, 94, 0.12)",
-              border: "1px solid rgba(34, 197, 94, 0.30)",
-              color: "var(--status-success)",
-            }
-          : tone === "red"
-            ? {
-                backgroundColor: "rgba(239, 68, 68, 0.12)",
-                border: "1px solid rgba(239, 68, 68, 0.30)",
-                color: "#ef4444",
-              }
-            : {
-                backgroundColor: "rgba(100, 116, 139, 0.12)",
-                border: "1px solid rgba(100, 116, 139, 0.25)",
-                color: "var(--text-secondary)",
-              };
+type Tone = "teal" | "slate" | "amber" | "green" | "red";
 
+function toneStyle(tone: Tone): React.CSSProperties {
+  if (tone === "teal")
+    return {
+      backgroundColor: "rgba(46, 196, 182, 0.12)",
+      border: "1px solid rgba(46, 196, 182, 0.30)",
+      color: "var(--accent-teal)",
+    };
+  if (tone === "amber")
+    return {
+      backgroundColor: "rgba(245, 158, 11, 0.12)",
+      border: "1px solid rgba(245, 158, 11, 0.30)",
+      color: "#f59e0b",
+    };
+  if (tone === "green")
+    return {
+      backgroundColor: "rgba(34, 197, 94, 0.12)",
+      border: "1px solid rgba(34, 197, 94, 0.30)",
+      color: "var(--status-success)",
+    };
+  if (tone === "red")
+    return {
+      backgroundColor: "rgba(239, 68, 68, 0.12)",
+      border: "1px solid rgba(239, 68, 68, 0.30)",
+      color: "#ef4444",
+    };
+  return {
+    backgroundColor: "rgba(100, 116, 139, 0.12)",
+    border: "1px solid rgba(100, 116, 139, 0.25)",
+    color: "var(--text-secondary)",
+  };
+}
+
+function Pill({ label, tone }: { label: string; tone: Tone }) {
   return (
     <span
       className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-      style={style}
+      style={toneStyle(tone)}
     >
       {label}
     </span>
   );
 }
 
-function statusTone(status?: DriverStatus):
-  | "teal"
-  | "slate"
-  | "amber"
-  | "green"
-  | "red" {
+function statusTone(status?: DriverStatus): Tone {
   if (status === "AVAILABLE") return "teal";
   if (status === "BUSY") return "amber";
   if (status === "SUSPENDED") return "red";
   return "slate";
+}
+
+function appTone(status?: DriverApplicationStatus): Tone {
+  if (status === "APPROVED") return "green";
+  if (status === "NEEDS_INFO") return "red";
+  if (status === "PENDING") return "amber";
+  return "slate";
+}
+
+function Button({
+  children,
+  onClick,
+  disabled,
+  variant = "secondary",
+  leftIcon,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  variant?: "primary" | "secondary" | "danger" | "ghost";
+  leftIcon?: React.ReactNode;
+}) {
+  const styles: Record<string, React.CSSProperties> = {
+    primary: {
+      backgroundColor: "rgba(46, 196, 182, 0.14)",
+      borderColor: "rgba(46, 196, 182, 0.30)",
+      color: "var(--accent-teal)",
+    },
+    secondary: {
+      backgroundColor: "var(--bg-secondary)",
+      borderColor: "var(--border-medium)",
+      color: "var(--text-primary)",
+    },
+    danger: {
+      backgroundColor: "rgba(239, 68, 68, 0.12)",
+      borderColor: "rgba(239, 68, 68, 0.30)",
+      color: "#ef4444",
+    },
+    ghost: {
+      backgroundColor: "transparent",
+      borderColor: "transparent",
+      color: "var(--text-primary)",
+    },
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition active:scale-[0.99]",
+        disabled && "opacity-60 cursor-not-allowed",
+        variant === "ghost" && "hover:opacity-80",
+      )}
+      style={styles[variant]}
+    >
+      {leftIcon ? <span className="shrink-0">{leftIcon}</span> : null}
+      <span className="truncate">{children}</span>
+    </button>
+  );
+}
+
+function Segmented({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: Array<{ value: string; label: string; icon?: React.ReactNode }>;
+}) {
+  return (
+    <div
+      className="inline-flex rounded-xl border p-1"
+      style={{
+        backgroundColor: "var(--bg-secondary)",
+        borderColor: "var(--border-medium)",
+      }}
+    >
+      {options.map((opt) => {
+        const active = opt.value === value;
+        return (
+          <button
+            key={opt.value}
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition",
+              active ? "shadow-sm" : "opacity-80 hover:opacity-100",
+            )}
+            style={{
+              backgroundColor: active ? "var(--bg-tertiary)" : "transparent",
+              color: active ? "var(--text-primary)" : "var(--text-secondary)",
+              border: active
+                ? "1px solid var(--border-medium)"
+                : "1px solid transparent",
+            }}
+          >
+            {opt.icon ? <span className="shrink-0">{opt.icon}</span> : null}
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SkeletonRow() {
+  return (
+    <tr className="border-t" style={{ borderColor: "var(--border-medium)" }}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <td key={i} className="px-5 py-4">
+          <div
+            className="h-4 w-full max-w-[220px] rounded-md animate-pulse"
+            style={{ backgroundColor: "var(--bg-tertiary)" }}
+          />
+          {i === 0 ? (
+            <div
+              className="mt-2 h-3 w-40 rounded-md animate-pulse"
+              style={{ backgroundColor: "var(--bg-tertiary)" }}
+            />
+          ) : null}
+        </td>
+      ))}
+    </tr>
+  );
 }
 
 function ApplicationModal({
@@ -113,41 +243,23 @@ function ApplicationModal({
   const Icon = vehicleIcon(app.vehicleType);
   const [isWorking, setIsWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
 
-  const docLink = (label: string, path: string) => {
-    const url = buildFileUrl(path);
-    return (
-      <a
-        href={url}
-        target="_blank"
-        rel="noreferrer"
-        className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition hover:opacity-95"
-        style={{
-          backgroundColor: "var(--bg-secondary)",
-          borderColor: "var(--border-medium)",
-          color: "var(--text-primary)",
-        }}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <div
-            className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0"
-            style={{ backgroundColor: "rgba(46, 196, 182, 0.12)" }}
-          >
-            <FileText className="h-5 w-5" style={{ color: "var(--accent-teal)" }} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold truncate">{label}</div>
-            <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
-              Open file
-            </div>
-          </div>
-        </div>
-        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          View →
-        </span>
-      </a>
-    );
-  };
+  // Better modal behavior
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeBtnRef.current?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose]);
 
   const setDriverStatus = async (status: DriverStatus) => {
     if (isWorking) return;
@@ -179,8 +291,79 @@ function ApplicationModal({
     }
   };
 
+  const DocCard = ({ label, path }: { label: string; path: string }) => {
+    const missing = !path;
+    const url = missing ? "" : buildFileUrl(path);
+
+    return (
+      <a
+        href={missing ? undefined : url}
+        target={missing ? undefined : "_blank"}
+        rel={missing ? undefined : "noreferrer"}
+        onClick={(e) => {
+          if (missing) e.preventDefault();
+        }}
+        className={cn(
+          "group flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition",
+          missing ? "opacity-70 cursor-not-allowed" : "hover:opacity-95",
+        )}
+        style={{
+          backgroundColor: "var(--bg-secondary)",
+          borderColor: "var(--border-medium)",
+          color: "var(--text-primary)",
+        }}
+        aria-disabled={missing}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div
+            className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0"
+            style={{
+              backgroundColor: missing
+                ? "rgba(100,116,139,0.12)"
+                : "rgba(46, 196, 182, 0.12)",
+            }}
+          >
+            <FileText
+              className="h-5 w-5"
+              style={{
+                color: missing ? "var(--text-secondary)" : "var(--accent-teal)",
+              }}
+            />
+          </div>
+
+          <div className="min-w-0">
+            <div className="text-sm font-semibold truncate">{label}</div>
+            <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              {missing ? "Missing file" : "Open file"}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {missing ? (
+            <span
+              className="text-xs inline-flex items-center gap-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              <AlertTriangle className="h-4 w-4" />
+              Missing
+            </span>
+          ) : (
+            <span
+              className="text-xs inline-flex items-center gap-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              View{" "}
+              <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+            </span>
+          )}
+        </div>
+      </a>
+    );
+  };
+
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
       <div
         className="absolute inset-0"
         style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
@@ -189,24 +372,32 @@ function ApplicationModal({
 
       <div className="absolute inset-0 flex items-start justify-center p-4 sm:p-8 overflow-auto">
         <div
-          className="w-full max-w-3xl rounded-2xl border shadow-xl"
+          className="w-full max-w-4xl rounded-2xl border shadow-xl"
           style={{
             backgroundColor: "var(--bg-primary)",
             borderColor: "var(--border-medium)",
           }}
         >
+          {/* Header */}
           <div
-            className="flex items-start justify-between gap-4 px-6 py-5 border-b"
-            style={{ borderColor: "var(--border-medium)" }}
+            className="flex items-start justify-between gap-4 px-6 py-5 border-b sticky top-0 z-10"
+            style={{
+              borderColor: "var(--border-medium)",
+              backgroundColor: "var(--bg-primary)",
+            }}
           >
             <div className="min-w-0">
               <div className="flex items-center gap-3">
                 <div
-                  className="h-10 w-10 rounded-lg flex items-center justify-center"
+                  className="h-11 w-11 rounded-xl flex items-center justify-center"
                   style={{ backgroundColor: "rgba(46, 196, 182, 0.12)" }}
                 >
-                  <Icon className="h-5 w-5" style={{ color: "var(--accent-teal)" }} />
+                  <Icon
+                    className="h-5 w-5"
+                    style={{ color: "var(--accent-teal)" }}
+                  />
                 </div>
+
                 <div className="min-w-0">
                   <div
                     className="text-lg font-bold header truncate"
@@ -215,8 +406,15 @@ function ApplicationModal({
                   >
                     {app.driverName}
                   </div>
-                  <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                    {VEHICLE_TYPE_LABELS[app.vehicleType]} · {app.plateNumber}
+
+                  <div
+                    className="text-sm"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    {VEHICLE_TYPE_LABELS[app.vehicleType]} · {app.plateNumber} ·{" "}
+                    <span className="whitespace-nowrap">
+                      Updated {formatTimestamp(app.updatedAt)}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -224,8 +422,14 @@ function ApplicationModal({
               <div className="mt-3 flex flex-wrap gap-2">
                 {app.applicationStatus ? (
                   <Pill
-                    label={DRIVER_APPLICATION_STATUS_LABELS[app.applicationStatus as DriverApplicationStatus]}
-                    tone={app.applicationStatus === "APPROVED" ? "green" : app.applicationStatus === "NEEDS_INFO" ? "red" : "slate"}
+                    label={
+                      DRIVER_APPLICATION_STATUS_LABELS[
+                        app.applicationStatus as DriverApplicationStatus
+                      ]
+                    }
+                    tone={appTone(
+                      app.applicationStatus as DriverApplicationStatus,
+                    )}
                   />
                 ) : null}
                 {app.status ? (
@@ -238,8 +442,9 @@ function ApplicationModal({
             </div>
 
             <button
+              ref={closeBtnRef}
               onClick={onClose}
-              className="p-2 rounded-lg border transition hover:opacity-90"
+              className="p-2 rounded-xl border transition hover:opacity-90"
               aria-label="Close"
               style={{
                 backgroundColor: "var(--bg-secondary)",
@@ -265,72 +470,122 @@ function ApplicationModal({
               </div>
             ) : null}
 
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                disabled={isWorking}
-                onClick={() => setDriverStatus("AVAILABLE")}
-                className="px-4 py-2 rounded-lg border text-sm font-semibold transition"
-                style={{
-                  opacity: isWorking ? 0.6 : 1,
-                  backgroundColor: "rgba(46, 196, 182, 0.12)",
-                  borderColor: "rgba(46, 196, 182, 0.30)",
-                  color: "var(--accent-teal)",
-                }}
-              >
-                Set Available
-              </button>
-              <button
-                disabled={isWorking}
-                onClick={() => setDriverStatus("OFFLINE")}
-                className="px-4 py-2 rounded-lg border text-sm font-semibold transition hover:opacity-90"
-                style={{
-                  opacity: isWorking ? 0.6 : 1,
-                  backgroundColor: "var(--bg-secondary)",
-                  borderColor: "var(--border-medium)",
-                  color: "var(--text-primary)",
-                }}
-              >
-                Set Offline
-              </button>
-              <button
-                disabled={isWorking}
-                onClick={() => setDriverStatus("SUSPENDED")}
-                className="px-4 py-2 rounded-lg border text-sm font-semibold transition"
-                style={{
-                  opacity: isWorking ? 0.6 : 1,
-                  backgroundColor: "rgba(239, 68, 68, 0.10)",
-                  borderColor: "rgba(239, 68, 68, 0.30)",
-                  color: "#ef4444",
-                }}
-              >
-                Suspend
-              </button>
-              <button
-                disabled={isWorking}
-                onClick={requestDocs}
-                className="px-4 py-2 rounded-lg border text-sm font-semibold transition hover:opacity-90"
-                style={{
-                  opacity: isWorking ? 0.6 : 1,
-                  backgroundColor: "var(--bg-secondary)",
-                  borderColor: "var(--border-medium)",
-                  color: "var(--text-primary)",
-                }}
-              >
-                Request doc update
-              </button>
+            {/* Quick actions */}
+            <div
+              className="rounded-2xl border p-4 sm:p-5"
+              style={{
+                borderColor: "var(--border-medium)",
+                backgroundColor: "var(--bg-secondary)",
+              }}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="min-w-0">
+                  <div
+                    className="text-sm font-bold"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    Quick actions
+                  </div>
+                  <div
+                    className="text-xs mt-1"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Update availability, suspend, or request document re-upload.
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    disabled={isWorking}
+                    onClick={() => setDriverStatus("AVAILABLE")}
+                    variant="primary"
+                    leftIcon={<CheckCircle2 className="h-4 w-4" />}
+                  >
+                    Set Available
+                  </Button>
+
+                  <Button
+                    disabled={isWorking}
+                    onClick={() => setDriverStatus("OFFLINE")}
+                    variant="secondary"
+                    leftIcon={<CircleDashed className="h-4 w-4" />}
+                  >
+                    Set Offline
+                  </Button>
+
+                  <Button
+                    disabled={isWorking}
+                    onClick={() => setDriverStatus("SUSPENDED")}
+                    variant="danger"
+                    leftIcon={<Ban className="h-4 w-4" />}
+                  >
+                    Suspend
+                  </Button>
+
+                  <Button
+                    disabled={isWorking}
+                    onClick={requestDocs}
+                    variant="secondary"
+                    leftIcon={<FileText className="h-4 w-4" />}
+                  >
+                    Request doc update
+                  </Button>
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {docLink("Proof of ownership", app.proofOfOwnershipPath)}
-              {docLink("Vehicle license", app.vehicleLicensePath)}
-              {docLink("Hackney permit", app.hackneyPermitPath)}
-              {docLink("Vehicle insurance", app.vehicleInsurancePath)}
-              {docLink("Vehicle video", app.vehicleVideoPath)}
-              {docLink("Driver's license", app.driversLicensePath)}
-              {docLink("Means of ID", app.meansOfIdPath)}
-              {docLink("Driver face photo", app.driverFacePhotoPath)}
-              {docLink("Driver full body photo", app.driverFullBodyPhotoPath)}
-              {docLink("Guarantor ID", app.guarantorMeansOfIdPath)}
+            {/* Documents */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div
+                    className="text-sm font-bold"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    Documents
+                  </div>
+                  <div
+                    className="text-xs mt-1"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Click a card to open the uploaded file.
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <DocCard
+                  label="Proof of ownership"
+                  path={app.proofOfOwnershipPath}
+                />
+                <DocCard
+                  label="Vehicle license"
+                  path={app.vehicleLicensePath}
+                />
+                <DocCard label="Hackney permit" path={app.hackneyPermitPath} />
+                <DocCard
+                  label="Vehicle insurance"
+                  path={app.vehicleInsurancePath}
+                />
+                <DocCard label="Vehicle video" path={app.vehicleVideoPath} />
+                <DocCard
+                  label="Driver's license"
+                  path={app.driversLicensePath}
+                />
+                <DocCard label="Means of ID" path={app.meansOfIdPath} />
+                <DocCard
+                  label="Driver face photo"
+                  path={app.driverFacePhotoPath}
+                />
+                <DocCard
+                  label="Driver full body photo"
+                  path={app.driverFullBodyPhotoPath}
+                />
+                <DocCard
+                  label="Guarantor ID"
+                  path={app.guarantorMeansOfIdPath}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -345,13 +600,22 @@ export default function DriversDirectory() {
   const [error, setError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [status, setStatus] = useState<"ALL" | DriverStatus>("ALL");
   const [selected, setSelected] = useState<DriverApplication | null>(null);
+
+  // Debounce search for smoother UX on large lists
+  useEffect(() => {
+    const t = window.setTimeout(
+      () => setDebouncedQuery(searchQuery.trim()),
+      180,
+    );
+    return () => window.clearTimeout(t);
+  }, [searchQuery]);
 
   const load = async () => {
     setIsLoading(true);
     setError(null);
-
     try {
       const data = await driversApi.listDirectory(
         status === "ALL" ? undefined : { status },
@@ -370,8 +634,9 @@ export default function DriversDirectory() {
   }, [status]);
 
   const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = debouncedQuery.toLowerCase();
     if (!q) return drivers;
+
     return drivers.filter((d) => {
       return (
         d.driverName.toLowerCase().includes(q) ||
@@ -380,104 +645,136 @@ export default function DriversDirectory() {
         d.guarantorPhone.toLowerCase().includes(q)
       );
     });
-  }, [drivers, searchQuery]);
+  }, [drivers, debouncedQuery]);
+
+  const stats = useMemo(() => {
+    const total = drivers.length;
+    const available = drivers.filter((d) => d.status === "AVAILABLE").length;
+    const busy = drivers.filter((d) => d.status === "BUSY").length;
+    const offline = drivers.filter((d) => d.status === "OFFLINE").length;
+    const suspended = drivers.filter((d) => d.status === "SUSPENDED").length;
+    return { total, available, busy, offline, suspended };
+  }, [drivers]);
 
   return (
     <Sidebar>
-      <div className="space-y-8">
-        <div className="flex flex-col gap-2">
-          <h1
-            className="text-3xl font-bold header"
-            style={{ color: "var(--text-primary)" }}
-          >
-            Directory
-          </h1>
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            Approved drivers and their current availability.
-          </p>
-        </div>
+      <style>{`input::placeholder { color: var(--text-secondary); }`}</style>
 
-        {error ? (
+      <div className="space-y-6">
+        {/* Sticky top header */}
+        <div className="sticky top-0 z-20 pt-2">
           <div
-            className="rounded-xl border px-4 py-3 text-sm"
+            className="rounded-2xl border px-4 sm:px-6 py-4 backdrop-blur"
             style={{
-              backgroundColor: "rgba(239, 68, 68, 0.10)",
-              borderColor: "rgba(239, 68, 68, 0.30)",
-              color: "#ef4444",
-            }}
-          >
-            {error}
-          </div>
-        ) : null}
-
-        <div className="flex flex-wrap items-center gap-3">
-          <div
-            className="relative rounded-lg border overflow-hidden flex-1 min-w-65"
-            style={{
-              backgroundColor: "var(--bg-secondary)",
+              backgroundColor:
+                "color-mix(in srgb, var(--bg-primary) 85%, transparent)",
               borderColor: "var(--border-medium)",
             }}
           >
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5"
-              style={{ color: "var(--text-secondary)" }}
-            />
-            <input
-              type="text"
-              placeholder="Search by name, plate, guarantor..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-transparent outline-none"
-              style={{ color: "var(--text-primary)" }}
-            />
-            <style>{`input::placeholder { color: var(--text-secondary); }`}</style>
-          </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <h1
+                  className="text-2xl sm:text-3xl font-bold header"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  Drivers Directory
+                </h1>
+                <p
+                  className="text-sm mt-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Approved drivers and their current availability.
+                </p>
 
-          <div
-            className="rounded-lg border px-3 py-2"
-            style={{
-              backgroundColor: "var(--bg-secondary)",
-              borderColor: "var(--border-medium)",
-              color: "var(--text-primary)",
-            }}
-          >
-            <label
-              className="text-xs font-semibold"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              Status
-            </label>
-            <div className="mt-1">
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
-                className="bg-transparent outline-none text-sm"
-                style={{ color: "var(--text-primary)" }}
-              >
-                <option value="ALL">All</option>
-                <option value="AVAILABLE">Available</option>
-                <option value="BUSY">Busy</option>
-                <option value="OFFLINE">Offline</option>
-                <option value="SUSPENDED">Suspended</option>
-              </select>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Pill label={`Total: ${stats.total}`} tone="slate" />
+                  <Pill label={`Available: ${stats.available}`} tone="teal" />
+                  <Pill label={`Busy: ${stats.busy}`} tone="amber" />
+                  <Pill label={`Offline: ${stats.offline}`} tone="slate" />
+                  <Pill label={`Suspended: ${stats.suspended}`} tone="red" />
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:items-end gap-3">
+                <Segmented
+                  value={status}
+                  onChange={(v) => setStatus(v as any)}
+                  options={[
+                    { value: "ALL", label: "All" },
+                    { value: "AVAILABLE", label: "Available" },
+                    { value: "BUSY", label: "Busy" },
+                    { value: "OFFLINE", label: "Offline" },
+                    { value: "SUSPENDED", label: "Suspended" },
+                  ]}
+                />
+
+                <div className="flex items-center gap-2">
+                  <div
+                    className="relative rounded-xl border overflow-hidden w-[min(520px,100%)]"
+                    style={{
+                      backgroundColor: "var(--bg-secondary)",
+                      borderColor: "var(--border-medium)",
+                    }}
+                  >
+                    <Search
+                      className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5"
+                      style={{ color: "var(--text-secondary)" }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Search by name, plate, guarantor…"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-10 py-3 bg-transparent outline-none text-sm"
+                      style={{ color: "var(--text-primary)" }}
+                    />
+
+                    {searchQuery ? (
+                      <button
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:opacity-80"
+                        style={{ color: "var(--text-secondary)" }}
+                        onClick={() => setSearchQuery("")}
+                        aria-label="Clear search"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <Button
+                    onClick={load}
+                    disabled={isLoading}
+                    variant="secondary"
+                    leftIcon={
+                      <RefreshCcw
+                        className={cn("h-4 w-4", isLoading && "animate-spin")}
+                      />
+                    }
+                  >
+                    Refresh
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <button
-            onClick={load}
-            className="px-4 py-2 rounded-lg border text-sm font-semibold transition hover:opacity-90"
-            style={{
-              backgroundColor: "var(--bg-secondary)",
-              borderColor: "var(--border-medium)",
-              color: "var(--text-primary)",
-            }}
-          >
-            Refresh
-          </button>
+            {error ? (
+              <div
+                className="mt-4 rounded-xl border px-4 py-3 text-sm"
+                style={{
+                  backgroundColor: "rgba(239, 68, 68, 0.10)",
+                  borderColor: "rgba(239, 68, 68, 0.30)",
+                  color: "#ef4444",
+                }}
+              >
+                {error}
+              </div>
+            ) : null}
+          </div>
         </div>
 
+        {/* Table */}
         <div
-          className="rounded-xl border overflow-hidden"
+          className="rounded-2xl border overflow-hidden"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-medium)",
@@ -487,7 +784,7 @@ export default function DriversDirectory() {
             <table className="min-w-full">
               <thead>
                 <tr
-                  className="text-xs font-semibold uppercase tracking-wider"
+                  className="text-xs font-semibold uppercase tracking-wider sticky top-0 z-10"
                   style={{
                     color: "var(--text-secondary)",
                     backgroundColor: "var(--bg-tertiary)",
@@ -500,35 +797,55 @@ export default function DriversDirectory() {
                   <th className="px-5 py-4 text-left">Updated</th>
                 </tr>
               </thead>
+
               <tbody>
                 {isLoading ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-5 py-10 text-center text-sm"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Loading drivers...
-                    </td>
-                  </tr>
+                  <>
+                    <SkeletonRow />
+                    <SkeletonRow />
+                    <SkeletonRow />
+                    <SkeletonRow />
+                    <SkeletonRow />
+                  </>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan={5}
-                      className="px-5 py-10 text-center text-sm"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      No drivers found.
+                    <td colSpan={5} className="px-5 py-14 text-center">
+                      <div
+                        className="text-sm font-semibold"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        No drivers found
+                      </div>
+                      <div
+                        className="text-sm mt-1"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        Try clearing your search or switching the status filter.
+                      </div>
+                      <div className="mt-4">
+                        <Button
+                          variant="secondary"
+                          onClick={() => setSearchQuery("")}
+                        >
+                          Clear search
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((d) => {
+                  filtered.map((d, idx) => {
                     const Icon = vehicleIcon(d.vehicleType);
                     return (
                       <tr
                         key={d.id}
-                        className={cn("border-t cursor-pointer transition", true)}
-                        style={{ borderColor: "var(--border-medium)" }}
+                        className={cn("border-t cursor-pointer transition")}
+                        style={{
+                          borderColor: "var(--border-medium)",
+                          backgroundColor:
+                            idx % 2 === 0
+                              ? "transparent"
+                              : "rgba(100,116,139,0.04)",
+                        }}
                         onClick={() => setSelected(d)}
                         onMouseEnter={(e) => {
                           (e.currentTarget as any).style.backgroundColor =
@@ -536,34 +853,54 @@ export default function DriversDirectory() {
                         }}
                         onMouseLeave={(e) => {
                           (e.currentTarget as any).style.backgroundColor =
-                            "transparent";
+                            idx % 2 === 0
+                              ? "transparent"
+                              : "rgba(100,116,139,0.04)";
                         }}
                       >
                         <td className="px-5 py-4">
-                          <div
-                            className="font-semibold"
-                            style={{ color: "var(--text-primary)" }}
-                          >
-                            {d.driverName}
-                          </div>
-                          <div
-                            className="text-xs"
-                            style={{ color: "var(--text-secondary)" }}
-                          >
-                            {d.driverAddress}
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <div
+                                className="font-semibold truncate"
+                                style={{ color: "var(--text-primary)" }}
+                              >
+                                {d.driverName}
+                              </div>
+                              <div
+                                className="text-xs truncate"
+                                style={{ color: "var(--text-secondary)" }}
+                              >
+                                {d.driverAddress}
+                              </div>
+                            </div>
+                            <ChevronRight
+                              className="h-4 w-4 opacity-40"
+                              style={{ color: "var(--text-secondary)" }}
+                            />
                           </div>
                         </td>
+
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-2">
                             <div
                               className="h-8 w-8 rounded-lg flex items-center justify-center"
-                              style={{ backgroundColor: "rgba(46, 196, 182, 0.12)" }}
+                              style={{
+                                backgroundColor: "rgba(46, 196, 182, 0.12)",
+                              }}
                             >
-                              <Icon className="h-4 w-4" style={{ color: "var(--accent-teal)" }} />
+                              <Icon
+                                className="h-4 w-4"
+                                style={{ color: "var(--accent-teal)" }}
+                              />
                             </div>
-                            <Pill label={VEHICLE_TYPE_LABELS[d.vehicleType]} tone="teal" />
+                            <Pill
+                              label={VEHICLE_TYPE_LABELS[d.vehicleType]}
+                              tone="teal"
+                            />
                           </div>
                         </td>
+
                         <td className="px-5 py-4">
                           <span
                             className="text-sm font-semibold"
@@ -572,6 +909,7 @@ export default function DriversDirectory() {
                             {d.plateNumber}
                           </span>
                         </td>
+
                         <td className="px-5 py-4">
                           <Pill
                             label={
@@ -582,8 +920,12 @@ export default function DriversDirectory() {
                             tone={statusTone(d.status as DriverStatus)}
                           />
                         </td>
+
                         <td className="px-5 py-4">
-                          <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                          <span
+                            className="text-sm"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
                             {formatTimestamp(d.updatedAt)}
                           </span>
                         </td>
@@ -596,17 +938,33 @@ export default function DriversDirectory() {
           </div>
         </div>
 
+        {/* Tip card */}
         <div
-          className="rounded-xl border p-4"
+          className="rounded-2xl border p-4"
           style={{
             backgroundColor: "var(--bg-secondary)",
             borderColor: "var(--border-medium)",
           }}
         >
-          <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5" style={{ color: "var(--accent-teal)" }} />
-            <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              Tip: Open a profile to Suspend/Activate or request document updates.
+          <div className="flex items-start gap-2">
+            <Shield
+              className="h-5 w-5 mt-0.5"
+              style={{ color: "var(--accent-teal)" }}
+            />
+            <div>
+              <div
+                className="text-sm font-semibold"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Tip
+              </div>
+              <div
+                className="text-sm mt-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Click any row to open the driver profile and quickly
+                Suspend/Activate or request document updates.
+              </div>
             </div>
           </div>
         </div>

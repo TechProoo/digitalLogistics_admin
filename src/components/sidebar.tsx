@@ -277,7 +277,8 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
                               if (!isActive) {
                                 e.currentTarget.style.backgroundColor =
                                   "rgba(46,196,182,0.08)";
-                                e.currentTarget.style.color = "var(--accent-teal)";
+                                e.currentTarget.style.color =
+                                  "var(--accent-teal)";
                               }
                             }}
                             onMouseLeave={(e) => {

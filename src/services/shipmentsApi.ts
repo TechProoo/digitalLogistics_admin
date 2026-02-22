@@ -49,18 +49,18 @@ export const shipmentsApi = {
 
   async updateStatus(
     id: string,
-    body: UpdateShipmentStatusBody
+    body: UpdateShipmentStatusBody,
   ): Promise<Shipment> {
     const res = await apiClient.patch<Shipment>(
       `/shipments/${id}/status`,
-      body
+      body,
     );
     return res.data;
   },
 
   async updateAmount(
     id: string,
-    body: UpdateShipmentAmountBody
+    body: UpdateShipmentAmountBody,
   ): Promise<Shipment> {
     const res = await apiClient.patch<Shipment>(`/shipments/${id}`, body);
     return res.data;
@@ -68,11 +68,11 @@ export const shipmentsApi = {
 
   async addCheckpoint(
     id: string,
-    body: AddCheckpointBody
+    body: AddCheckpointBody,
   ): Promise<ShipmentCheckpoint> {
     const res = await apiClient.post<ShipmentCheckpoint>(
       `/shipments/${id}/checkpoints`,
-      body
+      body,
     );
     return res.data;
   },
@@ -80,7 +80,7 @@ export const shipmentsApi = {
   async addNote(id: string, body: AddNoteBody): Promise<ShipmentNote> {
     const res = await apiClient.post<ShipmentNote>(
       `/shipments/${id}/notes`,
-      body
+      body,
     );
     return res.data;
   },
@@ -91,7 +91,10 @@ export const shipmentsApi = {
   },
 
   async assignDriver(id: string, body: AssignDriverBody): Promise<Shipment> {
-    const res = await apiClient.patch<Shipment>(`/shipments/${id}/assign`, body);
+    const res = await apiClient.patch<Shipment>(
+      `/shipments/${id}/assign`,
+      body,
+    );
     return res.data;
   },
 };

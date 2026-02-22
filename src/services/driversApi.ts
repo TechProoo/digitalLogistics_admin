@@ -35,14 +35,18 @@ export const driversApi = {
     return res.data;
   },
 
-  async listDirectory(params?: ListDirectoryParams): Promise<DriverApplication[]> {
+  async listDirectory(
+    params?: ListDirectoryParams,
+  ): Promise<DriverApplication[]> {
     const res = await apiClient.get<DriverApplication[]>("/drivers/directory", {
       params,
     });
     return res.data;
   },
 
-  async listAvailable(params?: ListAvailableParams): Promise<DriverApplication[]> {
+  async listAvailable(
+    params?: ListAvailableParams,
+  ): Promise<DriverApplication[]> {
     const res = await apiClient.get<DriverApplication[]>("/drivers/available", {
       params,
     });
@@ -60,10 +64,16 @@ export const driversApi = {
     return res.data;
   },
 
-  async updateDriverStatus(id: string, status: DriverStatus): Promise<DriverApplication> {
-    const res = await apiClient.patch<DriverApplication>(`/drivers/${id}/status`, {
-      status,
-    });
+  async updateDriverStatus(
+    id: string,
+    status: DriverStatus,
+  ): Promise<DriverApplication> {
+    const res = await apiClient.patch<DriverApplication>(
+      `/drivers/${id}/status`,
+      {
+        status,
+      },
+    );
     return res.data;
   },
 
