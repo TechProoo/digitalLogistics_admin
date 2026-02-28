@@ -1,4 +1,5 @@
 import axios, { AxiosError, type AxiosInstance } from "axios";
+import { TOKEN_KEY } from "../auth/AdminAuthContext";
 
 export type ApiEnvelope<T> = {
   success: boolean;
@@ -53,6 +54,15 @@ export function createApiClient(): AxiosInstance {
     },
   });
 
+  api.interceptors.request.use((config) => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) {
+      config.headers = config.headers ?? {};
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  });
+
   api.interceptors.response.use(
     (response) => {
       const payload = response.data as any;
@@ -66,7 +76,15 @@ export function createApiClient(): AxiosInstance {
       }
       return response;
     },
-    (error) => Promise.reject(error),
+    (error) => {
+      if ((error as AxiosError)?.response?.status === 401) {
+        localStorage.removeItem(TOKEN_KEY);
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+      }
+      return Promise.reject(error);
+    },
   );
 
   return api;

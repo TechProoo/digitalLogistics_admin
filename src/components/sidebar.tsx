@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Home, Package, LogOut, Menu, X, Users, IdCard } from "lucide-react";
-import { authApi } from "../services/authApi";
+import { useAdminAuth } from "../auth/AdminAuthContext";
 
 // simple className merger
 function cn(...classes: (string | boolean | undefined)[]) {
@@ -9,6 +9,7 @@ function cn(...classes: (string | boolean | undefined)[]) {
 }
 
 export function Sidebar({ children }: { children: React.ReactNode }) {
+  const { logout } = useAdminAuth();
   const [isOpen, setIsOpen] = useState(false); // mobile
   const [isCollapsed, setIsCollapsed] = useState(false); // desktop collapsed
   const [isLarge, setIsLarge] = useState<boolean>(
@@ -20,12 +21,9 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
     try {
-      await authApi.logout();
-    } catch {
-      // ignore; we still want to clear any local UI state
+      logout();
     } finally {
       setIsLoggingOut(false);
-      window.location.href = "/";
     }
   };
 
@@ -326,15 +324,15 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
                     fontWeight: 600,
                   }}
                 >
-                  TP
+                  AD
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">TechPro</div>
+                  <div className="text-sm font-medium truncate">Admin</div>
                   <div
                     className="text-xs truncate"
                     style={{ color: "var(--text-secondary)" }}
                   >
-                    techpro@email.com
+                    admin@digitaldelivery.org
                   </div>
                 </div>
               </div>
