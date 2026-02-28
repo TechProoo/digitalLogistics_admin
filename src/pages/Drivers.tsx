@@ -21,6 +21,7 @@ import {
   FileText,
   RefreshCcw,
   Search,
+  Truck,
   User,
   Users,
   Video,
@@ -65,7 +66,9 @@ function buildFileUrl(path: string): string {
 }
 
 function vehicleIcon(type: VehicleType) {
-  return type === "VAN" ? Car : Bike;
+  if (type === "VAN") return Car;
+  if (type === "BIKE") return Bike;
+  return Truck;
 }
 
 type Tone = "teal" | "slate" | "amber" | "green" | "red";
@@ -872,10 +875,12 @@ export default function Drivers() {
     const total = filtered.length;
     const vans = filtered.filter((a) => a.vehicleType === "VAN").length;
     const bikes = filtered.filter((a) => a.vehicleType === "BIKE").length;
+    const lorries = filtered.filter((a) => a.vehicleType === "LORRY").length;
+    const trucks = filtered.filter((a) => a.vehicleType === "TRUCK").length;
     const breached = filtered.filter(
       (a) => formatSla(a.createdAt) === "SLA breached",
     ).length;
-    return { total, vans, bikes, breached };
+    return { total, vans, bikes, lorries, trucks, breached };
   }, [filtered]);
 
   return (
@@ -913,6 +918,8 @@ export default function Drivers() {
                   <Pill label={`Showing: ${stats.total}`} tone="slate" />
                   <Pill label={`Vans: ${stats.vans}`} tone="teal" />
                   <Pill label={`Bikes: ${stats.bikes}`} tone="teal" />
+                  <Pill label={`Lorries: ${stats.lorries}`} tone="teal" />
+                  <Pill label={`Trucks: ${stats.trucks}`} tone="teal" />
                   <Pill
                     label={`SLA breached: ${stats.breached}`}
                     tone={stats.breached ? "red" : "slate"}
@@ -973,6 +980,8 @@ export default function Drivers() {
                         <option value="ALL">All</option>
                         <option value="VAN">Van</option>
                         <option value="BIKE">Bike</option>
+                        <option value="LORRY">Lorry</option>
+                        <option value="TRUCK">Truck</option>
                       </select>
                     </div>
                   </div>

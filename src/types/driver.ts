@@ -1,4 +1,4 @@
-export type VehicleType = "VAN" | "BIKE";
+export type VehicleType = "VAN" | "BIKE" | "LORRY" | "TRUCK";
 
 export type DriverApplicationStatus =
   | "PENDING"
@@ -44,6 +44,8 @@ export type DriverApplication = {
 export const VEHICLE_TYPE_LABELS: Record<VehicleType, string> = {
   VAN: "Van",
   BIKE: "Bike",
+  LORRY: "Lorry",
+  TRUCK: "Truck",
 };
 
 export const DRIVER_APPLICATION_STATUS_LABELS: Record<

@@ -6,7 +6,14 @@ import { getApiErrorMessage } from "../../services/apiClient";
 import type { Shipment } from "../../types/shipment";
 import type { DriverApplication, VehicleType } from "../../types/driver";
 import { VEHICLE_TYPE_LABELS } from "../../types/driver";
-import { Bike, Car, CheckCircle2, Package, RefreshCcw } from "lucide-react";
+import {
+  Bike,
+  Car,
+  CheckCircle2,
+  Package,
+  RefreshCcw,
+  Truck,
+} from "lucide-react";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -25,7 +32,9 @@ function formatTimestamp(ts: string) {
 }
 
 function vehicleIcon(type: VehicleType) {
-  return type === "VAN" ? Car : Bike;
+  if (type === "VAN") return Car;
+  if (type === "BIKE") return Bike;
+  return Truck;
 }
 
 type VehicleFilter = "ALL" | VehicleType;
@@ -221,6 +230,8 @@ export default function DriversDispatch() {
                 <option value="ALL">All</option>
                 <option value="VAN">Van</option>
                 <option value="BIKE">Bike</option>
+                <option value="LORRY">Lorry</option>
+                <option value="TRUCK">Truck</option>
               </select>
             </div>
           </div>

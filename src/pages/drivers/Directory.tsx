@@ -19,6 +19,7 @@ import {
   FileText,
   Search,
   Shield,
+  Truck,
   X,
   RefreshCcw,
   ChevronRight,
@@ -51,7 +52,9 @@ function buildFileUrl(path: string): string {
 }
 
 function vehicleIcon(type: VehicleType) {
-  return type === "VAN" ? Car : Bike;
+  if (type === "VAN") return Car;
+  if (type === "BIKE") return Bike;
+  return Truck;
 }
 
 type Tone = "teal" | "slate" | "amber" | "green" | "red";
