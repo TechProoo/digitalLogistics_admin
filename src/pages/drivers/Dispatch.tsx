@@ -7,12 +7,19 @@ import type { Shipment } from "../../types/shipment";
 import type { DriverApplication, VehicleType } from "../../types/driver";
 import { VEHICLE_TYPE_LABELS } from "../../types/driver";
 import {
+  ArrowRight,
   Bike,
   Car,
   CheckCircle2,
+  ChevronRight,
+  Clock,
+  MapPin,
   Package,
   RefreshCcw,
   Truck,
+  Users,
+  X,
+  Zap,
 } from "lucide-react";
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -31,6 +38,18 @@ function formatTimestamp(ts: string) {
   });
 }
 
+function formatTimeAgo(ts: string) {
+  const d = new Date(ts).getTime();
+  if (!Number.isFinite(d)) return "";
+  const diff = Date.now() - d;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 function vehicleIcon(type: VehicleType) {
   if (type === "VAN") return Car;
   if (type === "BIKE") return Bike;
@@ -39,15 +58,130 @@ function vehicleIcon(type: VehicleType) {
 
 type VehicleFilter = "ALL" | VehicleType;
 
-const styles = {
-  card: {
-    backgroundColor: "var(--bg-secondary)",
-    borderColor: "var(--border-medium)",
-  } as React.CSSProperties,
-  title: { color: "var(--text-primary)" } as React.CSSProperties,
-  sub: { color: "var(--text-secondary)" } as React.CSSProperties,
-  accent: { color: "var(--accent-teal)" } as React.CSSProperties,
-};
+function SkeletonCard() {
+  return (
+    <div
+      className="px-4 py-4 border-b"
+      style={{ borderColor: "var(--border-medium)" }}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="space-y-2 flex-1">
+          <div
+            className="h-3.5 w-36 rounded animate-pulse"
+            style={{ backgroundColor: "var(--bg-tertiary)" }}
+          />
+          <div
+            className="h-3 w-48 rounded animate-pulse"
+            style={{ backgroundColor: "var(--bg-tertiary)" }}
+          />
+        </div>
+        <div
+          className="h-3 w-16 rounded animate-pulse"
+          style={{ backgroundColor: "var(--bg-tertiary)" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({
+  icon: Icon,
+  title,
+  sub,
+}: {
+  icon: React.ElementType;
+  title: string;
+  sub: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
+      <div
+        className="h-12 w-12 rounded-2xl flex items-center justify-center mb-3"
+        style={{
+          backgroundColor: "rgba(100,116,139,0.10)",
+          border: "1px solid var(--border-medium)",
+        }}
+      >
+        <Icon className="h-6 w-6" style={{ color: "var(--text-secondary)" }} />
+      </div>
+      <div
+        className="text-sm font-bold mb-1"
+        style={{ color: "var(--text-primary)" }}
+      >
+        {title}
+      </div>
+      <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
+        {sub}
+      </div>
+    </div>
+  );
+}
+
+// Step pill shown at top to guide user
+function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
+  const steps = [
+    { n: 1, label: "Pick shipment" },
+    { n: 2, label: "Pick driver" },
+    { n: 3, label: "Confirm" },
+  ];
+  return (
+    <div className="flex items-center gap-1">
+      {steps.map((s, i) => {
+        const done = step > s.n;
+        const active = step === s.n;
+        return (
+          <div key={s.n} className="flex items-center gap-1">
+            <div
+              className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-all"
+              style={{
+                backgroundColor: done
+                  ? "rgba(34,197,94,0.12)"
+                  : active
+                    ? "rgba(46,196,182,0.15)"
+                    : "rgba(100,116,139,0.10)",
+                border: done
+                  ? "1px solid rgba(34,197,94,0.3)"
+                  : active
+                    ? "1px solid rgba(46,196,182,0.35)"
+                    : "1px solid transparent",
+                color: done
+                  ? "var(--status-success)"
+                  : active
+                    ? "var(--accent-teal)"
+                    : "var(--text-secondary)",
+              }}
+            >
+              {done ? (
+                <CheckCircle2 className="h-3 w-3" />
+              ) : (
+                <span
+                  className="h-3.5 w-3.5 rounded-full flex items-center justify-center text-[10px] font-bold"
+                  style={{
+                    backgroundColor: active
+                      ? "var(--accent-teal)"
+                      : "var(--bg-tertiary)",
+                    color: active
+                      ? "var(--bg-primary)"
+                      : "var(--text-secondary)",
+                  }}
+                >
+                  {s.n}
+                </span>
+              )}
+              {s.label}
+            </div>
+            {i < steps.length - 1 && (
+              <ChevronRight
+                className="h-3.5 w-3.5 opacity-30"
+                style={{ color: "var(--text-secondary)" }}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function DriversDispatch() {
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -56,6 +190,7 @@ export default function DriversDispatch() {
   const [shipmentsLoading, setShipmentsLoading] = useState(false);
   const [driversLoading, setDriversLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [assignedSuccess, setAssignedSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [vehicleType, setVehicleType] = useState<VehicleFilter>("ALL");
@@ -64,35 +199,31 @@ export default function DriversDispatch() {
   );
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
 
-  const unassigned = useMemo(() => {
-    return shipments
-      .filter((s) => !s.driverId)
-      .slice()
-      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-  }, [shipments]);
+  const unassigned = useMemo(
+    () =>
+      shipments
+        .filter((s) => !s.driverId)
+        .slice()
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))),
+    [shipments],
+  );
 
   const selectedShipment = useMemo(
     () => unassigned.find((s) => s.id === selectedShipmentId) || null,
     [unassigned, selectedShipmentId],
   );
 
-  // Optional improvement: if shipments have a vehicleType requirement, filter drivers to match the selected shipment.
-  // If your Shipment type doesn't have this field, this just falls back safely.
   const selectedShipmentVehicleType = (selectedShipment as any)?.vehicleType as
     | VehicleType
     | undefined;
 
   const visibleDrivers = useMemo(() => {
-    // If admin picked a filter (Bike/Van) — use it.
     if (vehicleType !== "ALL")
       return drivers.filter((d) => d.vehicleType === vehicleType);
-
-    // If no filter selected, but shipment requires a vehicle type — narrow drivers to match.
     if (selectedShipmentVehicleType)
       return drivers.filter(
         (d) => d.vehicleType === selectedShipmentVehicleType,
       );
-
     return drivers;
   }, [drivers, vehicleType, selectedShipmentVehicleType]);
 
@@ -101,22 +232,22 @@ export default function DriversDispatch() {
     [visibleDrivers, selectedDriverId],
   );
 
+  // Derive current wizard step
+  const step: 1 | 2 | 3 = !selectedShipment ? 1 : !selectedDriver ? 2 : 3;
+
   const load = useCallback(async () => {
     setError(null);
     setShipmentsLoading(true);
     setDriversLoading(true);
-
     try {
       const driverFilter =
         vehicleType === "ALL"
           ? undefined
           : { vehicleType: vehicleType as VehicleType };
-
       const [allShipments, availableDrivers] = await Promise.all([
         shipmentsApi.list(),
         driversApi.listAvailable(driverFilter),
       ]);
-
       setShipments(allShipments);
       setDrivers(availableDrivers);
     } catch (err) {
@@ -131,7 +262,6 @@ export default function DriversDispatch() {
     load();
   }, [load]);
 
-  // Keep selections valid (avoid stale IDs after refresh/filter change)
   useEffect(() => {
     if (
       selectedShipmentId &&
@@ -139,9 +269,7 @@ export default function DriversDispatch() {
     ) {
       setSelectedShipmentId(null);
     }
-    // if shipment changes, driver selection should reset (prevents accidental mismatch)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unassigned]);
+  }, [unassigned, selectedShipmentId]);
 
   useEffect(() => {
     if (
@@ -152,7 +280,6 @@ export default function DriversDispatch() {
     }
   }, [visibleDrivers, selectedDriverId]);
 
-  // If vehicle filter changes, it's safer to clear selected driver (the list changes)
   useEffect(() => {
     setSelectedDriverId(null);
   }, [vehicleType]);
@@ -160,331 +287,747 @@ export default function DriversDispatch() {
   const canAssign = Boolean(selectedShipment && selectedDriver) && !assigning;
 
   const assign = useCallback(async () => {
-    if (!selectedShipmentId || !selectedDriverId) return;
-    if (assigning) return;
-
+    if (!selectedShipmentId || !selectedDriverId || assigning) return;
     setAssigning(true);
     setError(null);
-
+    setAssignedSuccess(null);
     try {
       await shipmentsApi.assignDriver(selectedShipmentId, {
         driverId: selectedDriverId,
       });
-
-      // Optimistic clear
+      const label = `${selectedShipment?.trackingId} → ${selectedDriver?.driverName}`;
+      setAssignedSuccess(label);
       setSelectedShipmentId(null);
       setSelectedDriverId(null);
-
       await load();
+      setTimeout(() => setAssignedSuccess(null), 4000);
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
       setAssigning(false);
     }
-  }, [assigning, load, selectedDriverId, selectedShipmentId]);
+  }, [
+    assigning,
+    load,
+    selectedDriverId,
+    selectedShipmentId,
+    selectedShipment,
+    selectedDriver,
+  ]);
 
-  const clearSelection = () => {
-    setSelectedShipmentId(null);
-    setSelectedDriverId(null);
-  };
+  const isLoading = shipmentsLoading || driversLoading;
 
   return (
     <Sidebar>
-      <div className="space-y-8">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-bold header" style={styles.title}>
-            Dispatch
-          </h1>
-          <p className="text-sm" style={styles.sub}>
-            Manually assign unassigned shipments to available drivers.
-          </p>
+      <style>{`
+        .dispatch-scroll::-webkit-scrollbar { width: 4px; }
+        .dispatch-scroll::-webkit-scrollbar-thumb { background: var(--border-medium); border-radius: 99px; }
+        .dispatch-scroll::-webkit-scrollbar-track { background: transparent; }
+      `}</style>
+
+      <div className="flex flex-col" style={{ height: "calc(100vh - 2rem)" }}>
+        {/* ── Header bar ── */}
+        <div className="shrink-0 mb-4">
+          <div
+            className="rounded-2xl border px-5 py-4"
+            style={{
+              backgroundColor: "var(--bg-secondary)",
+              borderColor: "var(--border-medium)",
+            }}
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2.5 mb-1">
+                  <div
+                    className="h-9 w-9 rounded-xl flex items-center justify-center"
+                    style={{
+                      backgroundColor: "rgba(46,196,182,0.12)",
+                      border: "1px solid rgba(46,196,182,0.25)",
+                    }}
+                  >
+                    <Zap
+                      className="h-5 w-5"
+                      style={{ color: "var(--accent-teal)" }}
+                    />
+                  </div>
+                  <h1
+                    className="text-2xl font-bold header"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    Dispatch Console
+                  </h1>
+                </div>
+                <p
+                  className="text-sm pl-0.5"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {unassigned.length} unassigned shipment
+                  {unassigned.length !== 1 ? "s" : ""} · {visibleDrivers.length}{" "}
+                  driver{visibleDrivers.length !== 1 ? "s" : ""} available
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <StepIndicator step={step} />
+
+                <div className="flex items-center gap-2 ml-2">
+                  {/* Vehicle filter */}
+                  <select
+                    value={vehicleType}
+                    onChange={(e) =>
+                      setVehicleType(e.target.value as VehicleFilter)
+                    }
+                    className="rounded-xl border px-3 py-2 text-sm bg-transparent outline-none cursor-pointer"
+                    style={{
+                      borderColor: "var(--border-medium)",
+                      color: "var(--text-primary)",
+                      backgroundColor: "var(--bg-tertiary)",
+                    }}
+                  >
+                    <option value="ALL">All vehicles</option>
+                    <option value="VAN">Van</option>
+                    <option value="BIKE">Bike</option>
+                    <option value="LORRY">Lorry</option>
+                    <option value="TRUCK">Truck</option>
+                  </select>
+
+                  <button
+                    onClick={load}
+                    disabled={isLoading}
+                    className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition hover:opacity-80 disabled:opacity-60"
+                    style={{
+                      backgroundColor: "var(--bg-tertiary)",
+                      borderColor: "var(--border-medium)",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    <RefreshCcw
+                      className={cn("h-4 w-4", isLoading && "animate-spin")}
+                    />
+                    Refresh
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {error ? (
+        {/* ── Toast banners ── */}
+        {assignedSuccess && (
           <div
-            className="rounded-xl border px-4 py-3 text-sm"
+            className="shrink-0 mb-3 rounded-xl border px-4 py-3 flex items-center justify-between gap-3 text-sm font-semibold"
             style={{
-              backgroundColor: "rgba(239, 68, 68, 0.10)",
-              borderColor: "rgba(239, 68, 68, 0.30)",
+              backgroundColor: "rgba(34,197,94,0.10)",
+              borderColor: "rgba(34,197,94,0.30)",
+              color: "var(--status-success)",
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              Assigned: {assignedSuccess}
+            </div>
+            <button onClick={() => setAssignedSuccess(null)}>
+              <X className="h-4 w-4 opacity-60 hover:opacity-100" />
+            </button>
+          </div>
+        )}
+        {error && (
+          <div
+            className="shrink-0 mb-3 rounded-xl border px-4 py-3 flex items-center justify-between gap-3 text-sm"
+            style={{
+              backgroundColor: "rgba(239,68,68,0.10)",
+              borderColor: "rgba(239,68,68,0.30)",
               color: "#ef4444",
             }}
           >
             {error}
+            <button onClick={() => setError(null)}>
+              <X className="h-4 w-4 opacity-60 hover:opacity-100" />
+            </button>
           </div>
-        ) : null}
+        )}
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="rounded-lg border px-3 py-2" style={styles.card}>
-            <label className="text-xs font-semibold" style={styles.sub}>
-              Driver vehicle
-            </label>
-            <div className="mt-1">
-              <select
-                value={vehicleType}
-                onChange={(e) =>
-                  setVehicleType(e.target.value as VehicleFilter)
-                }
-                className="bg-transparent outline-none text-sm"
-                style={styles.title}
-              >
-                <option value="ALL">All</option>
-                <option value="VAN">Van</option>
-                <option value="BIKE">Bike</option>
-                <option value="LORRY">Lorry</option>
-                <option value="TRUCK">Truck</option>
-              </select>
-            </div>
-          </div>
-
-          <button
-            onClick={load}
-            className="px-4 py-2 rounded-lg border text-sm font-semibold transition hover:opacity-90 inline-flex items-center gap-2"
-            style={styles.card}
-            disabled={shipmentsLoading || driversLoading}
-          >
-            <RefreshCcw
-              className={cn(
-                "h-4 w-4",
-                shipmentsLoading || driversLoading ? "animate-spin" : "",
-              )}
-            />
-            Refresh
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Shipments */}
+        {/* ── Three-column layout ── */}
+        <div className="flex flex-1 gap-4 min-h-0">
+          {/* ── COL 1: Unassigned Shipments ── */}
           <div
-            className="rounded-xl border overflow-hidden"
-            style={styles.card}
+            className="flex flex-col rounded-2xl border overflow-hidden flex-1 min-w-0"
+            style={{
+              backgroundColor: "var(--bg-secondary)",
+              borderColor: "var(--border-medium)",
+            }}
           >
+            {/* Column header */}
             <div
-              className="px-5 py-4 border-b"
-              style={{ borderColor: "var(--border-medium)" }}
+              className="shrink-0 px-5 py-4 border-b"
+              style={{
+                borderColor: "var(--border-medium)",
+                backgroundColor: "var(--bg-tertiary)",
+              }}
             >
-              <div className="flex items-center gap-2">
-                <Package className="h-5 w-5" style={styles.accent} />
-                <div className="text-sm font-bold header" style={styles.title}>
-                  Unassigned shipments
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Package
+                    className="h-4 w-4"
+                    style={{ color: "var(--accent-teal)" }}
+                  />
+                  <span
+                    className="text-sm font-bold header"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    Shipments
+                  </span>
+                  {!shipmentsLoading && (
+                    <span
+                      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold"
+                      style={{
+                        backgroundColor: "rgba(100,116,139,0.15)",
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      {unassigned.length}
+                    </span>
+                  )}
                 </div>
+                {selectedShipment && (
+                  <button
+                    onClick={() => {
+                      setSelectedShipmentId(null);
+                      setSelectedDriverId(null);
+                    }}
+                    className="text-xs font-semibold flex items-center gap-1 hover:opacity-80 transition"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    <X className="h-3.5 w-3.5" /> Clear
+                  </button>
+                )}
               </div>
-              <div className="text-xs mt-1" style={styles.sub}>
-                Select a shipment to assign.
-              </div>
+              <p
+                className="text-xs mt-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Select one to dispatch
+              </p>
             </div>
 
-            <div className="max-h-130 overflow-auto">
+            {/* Shipment list */}
+            <div className="flex-1 overflow-y-auto dispatch-scroll">
               {shipmentsLoading ? (
-                <div className="px-5 py-8 text-sm" style={styles.sub}>
-                  Loading shipments...
-                </div>
+                <>
+                  <SkeletonCard />
+                  <SkeletonCard />
+                  <SkeletonCard />
+                  <SkeletonCard />
+                </>
               ) : unassigned.length === 0 ? (
-                <div className="px-5 py-8 text-sm" style={styles.sub}>
-                  No unassigned shipments.
-                </div>
+                <EmptyState
+                  icon={Package}
+                  title="All clear"
+                  sub="No unassigned shipments right now."
+                />
               ) : (
-                <div
-                  className="divide-y"
-                  style={{ borderColor: "var(--border-medium)" }}
-                >
-                  {unassigned.map((s) => (
+                unassigned.map((s) => {
+                  const isActive = selectedShipmentId === s.id;
+                  return (
                     <button
                       key={s.id}
                       type="button"
                       onClick={() => {
                         setSelectedShipmentId(s.id);
-                        setSelectedDriverId(null); // reset driver when switching shipment
+                        setSelectedDriverId(null);
                       }}
-                      className={cn("w-full text-left px-5 py-4 transition")}
+                      className="w-full text-left border-b transition"
                       style={{
-                        backgroundColor:
-                          selectedShipmentId === s.id
-                            ? "rgba(34, 197, 94, 0.12)"
-                            : "transparent",
+                        borderColor: "var(--border-medium)",
+                        backgroundColor: isActive
+                          ? "rgba(46,196,182,0.08)"
+                          : "transparent",
+                        borderLeft: isActive
+                          ? "3px solid var(--accent-teal)"
+                          : "3px solid transparent",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive)
+                          (
+                            e.currentTarget as HTMLButtonElement
+                          ).style.backgroundColor = "rgba(100,116,139,0.05)";
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive)
+                          (
+                            e.currentTarget as HTMLButtonElement
+                          ).style.backgroundColor = "transparent";
                       }}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div
-                            className="text-sm font-semibold truncate"
-                            style={styles.title}
-                          >
-                            {s.trackingId}
+                      <div className="px-4 py-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span
+                                className="text-sm font-bold truncate"
+                                style={{ color: "var(--text-primary)" }}
+                              >
+                                {s.trackingId}
+                              </span>
+                              <span
+                                className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0"
+                                style={{
+                                  backgroundColor: "rgba(245,158,11,0.12)",
+                                  border: "1px solid rgba(245,158,11,0.25)",
+                                  color: "#f59e0b",
+                                }}
+                              >
+                                {s.status}
+                              </span>
+                            </div>
+                            <div
+                              className="flex items-start gap-1 text-xs"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
+                              <span className="truncate">
+                                {s.pickupLocation}
+                              </span>
+                            </div>
+                            <div
+                              className="flex items-center gap-1 text-xs mt-0.5"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              <ArrowRight className="h-3 w-3 shrink-0" />
+                              <span className="truncate">
+                                {s.destinationLocation}
+                              </span>
+                            </div>
                           </div>
-                          <div className="text-xs" style={styles.sub}>
-                            {s.pickupLocation} → {s.destinationLocation}
-                          </div>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <div className="text-xs" style={styles.sub}>
-                            {formatTimestamp(String(s.createdAt))}
-                          </div>
-                          <div
-                            className="text-xs font-semibold"
-                            style={styles.sub}
-                          >
-                            {s.status}
+                          <div className="shrink-0 text-right">
+                            <div
+                              className="flex items-center gap-1 text-xs justify-end"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              <Clock className="h-3 w-3" />
+                              {formatTimeAgo(String(s.createdAt))}
+                            </div>
+                            {isActive && (
+                              <div className="mt-1">
+                                <CheckCircle2
+                                  className="h-4 w-4 ml-auto"
+                                  style={{ color: "var(--accent-teal)" }}
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
                     </button>
-                  ))}
-                </div>
+                  );
+                })
               )}
             </div>
           </div>
 
-          {/* Drivers */}
+          {/* ── COL 2: Available Drivers ── */}
           <div
-            className="rounded-xl border overflow-hidden"
-            style={styles.card}
+            className="flex flex-col rounded-2xl border overflow-hidden flex-1 min-w-0"
+            style={{
+              backgroundColor: "var(--bg-secondary)",
+              borderColor: "var(--border-medium)",
+              opacity: !selectedShipment ? 0.6 : 1,
+              transition: "opacity 0.2s",
+            }}
           >
             <div
-              className="px-5 py-4 border-b"
-              style={{ borderColor: "var(--border-medium)" }}
+              className="shrink-0 px-5 py-4 border-b"
+              style={{
+                borderColor: "var(--border-medium)",
+                backgroundColor: "var(--bg-tertiary)",
+              }}
             >
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5" style={styles.accent} />
-                <div className="text-sm font-bold header" style={styles.title}>
-                  Available drivers
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users
+                    className="h-4 w-4"
+                    style={{ color: "var(--accent-teal)" }}
+                  />
+                  <span
+                    className="text-sm font-bold header"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    Drivers
+                  </span>
+                  {!driversLoading && (
+                    <span
+                      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold"
+                      style={{
+                        backgroundColor: "rgba(100,116,139,0.15)",
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      {visibleDrivers.length}
+                    </span>
+                  )}
                 </div>
+                {selectedDriver && (
+                  <button
+                    onClick={() => setSelectedDriverId(null)}
+                    className="text-xs font-semibold flex items-center gap-1 hover:opacity-80 transition"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    <X className="h-3.5 w-3.5" /> Clear
+                  </button>
+                )}
               </div>
-              <div className="text-xs mt-1" style={styles.sub}>
+              <p
+                className="text-xs mt-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 {selectedShipment
-                  ? "Select a driver to assign to the chosen shipment."
-                  : "Pick a shipment first, then choose a driver."}
-              </div>
+                  ? "Choose a driver for this shipment"
+                  : "Select a shipment first"}
+              </p>
             </div>
 
-            <div className="max-h-130 overflow-auto">
+            <div className="flex-1 overflow-y-auto dispatch-scroll">
               {driversLoading ? (
-                <div className="px-5 py-8 text-sm" style={styles.sub}>
-                  Loading drivers...
-                </div>
+                <>
+                  <SkeletonCard />
+                  <SkeletonCard />
+                  <SkeletonCard />
+                </>
               ) : visibleDrivers.length === 0 ? (
-                <div className="px-5 py-8 text-sm" style={styles.sub}>
-                  No available drivers.
-                </div>
+                <EmptyState
+                  icon={Users}
+                  title="No drivers"
+                  sub="No available drivers for the current filter."
+                />
               ) : (
-                <div
-                  className="divide-y"
-                  style={{ borderColor: "var(--border-medium)" }}
-                >
-                  {visibleDrivers.map((d) => {
-                    const Icon = vehicleIcon(d.vehicleType);
-                    const disabled = !selectedShipment; // prevents random driver selection before shipment
-                    return (
-                      <button
-                        key={d.id}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => setSelectedDriverId(d.id)}
-                        className={cn(
-                          "w-full text-left px-5 py-4 transition",
-                          disabled && "opacity-60 cursor-not-allowed",
-                        )}
-                        style={{
-                          backgroundColor:
-                            selectedDriverId === d.id
-                              ? "rgba(34, 197, 94, 0.12)"
-                              : "transparent",
-                        }}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
+                visibleDrivers.map((d) => {
+                  const Icon = vehicleIcon(d.vehicleType);
+                  const isActive = selectedDriverId === d.id;
+                  const disabled = !selectedShipment;
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => setSelectedDriverId(d.id)}
+                      className={cn(
+                        "w-full text-left border-b transition",
+                        disabled && "cursor-not-allowed",
+                      )}
+                      style={{
+                        borderColor: "var(--border-medium)",
+                        backgroundColor: isActive
+                          ? "rgba(46,196,182,0.08)"
+                          : "transparent",
+                        borderLeft: isActive
+                          ? "3px solid var(--accent-teal)"
+                          : "3px solid transparent",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive && !disabled)
+                          (
+                            e.currentTarget as HTMLButtonElement
+                          ).style.backgroundColor = "rgba(100,116,139,0.05)";
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive)
+                          (
+                            e.currentTarget as HTMLButtonElement
+                          ).style.backgroundColor = "transparent";
+                      }}
+                    >
+                      <div className="px-4 py-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div
+                              className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                              style={{
+                                backgroundColor: isActive
+                                  ? "rgba(46,196,182,0.15)"
+                                  : "rgba(100,116,139,0.10)",
+                              }}
+                            >
+                              <Icon
+                                className="h-4 w-4"
                                 style={{
-                                  backgroundColor: "rgba(46, 196, 182, 0.12)",
+                                  color: isActive
+                                    ? "var(--accent-teal)"
+                                    : "var(--text-secondary)",
                                 }}
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <div
+                                className="text-sm font-semibold truncate"
+                                style={{ color: "var(--text-primary)" }}
                               >
-                                <Icon
-                                  className="h-4 w-4"
-                                  style={styles.accent}
-                                />
+                                {d.driverName}
                               </div>
-                              <div className="min-w-0">
-                                <div
-                                  className="text-sm font-semibold truncate"
-                                  style={styles.title}
-                                >
-                                  {d.driverName}
-                                </div>
-                                <div className="text-xs" style={styles.sub}>
-                                  {VEHICLE_TYPE_LABELS[d.vehicleType]} ·{" "}
-                                  {d.plateNumber}
-                                </div>
+                              <div
+                                className="text-xs mt-0.5"
+                                style={{ color: "var(--text-secondary)" }}
+                              >
+                                {VEHICLE_TYPE_LABELS[d.vehicleType]} ·{" "}
+                                {d.plateNumber}
                               </div>
                             </div>
                           </div>
                           <div className="shrink-0 text-right">
-                            <div className="text-xs" style={styles.sub}>
-                              Updated {formatTimestamp(String(d.updatedAt))}
-                            </div>
+                            {isActive ? (
+                              <CheckCircle2
+                                className="h-4 w-4"
+                                style={{ color: "var(--accent-teal)" }}
+                              />
+                            ) : (
+                              <div
+                                className="text-xs"
+                                style={{ color: "var(--text-secondary)" }}
+                              >
+                                {formatTimeAgo(String(d.updatedAt))}
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                      </div>
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
-        </div>
 
-        {/* Confirmation */}
-        <div className="rounded-xl border p-5" style={styles.card}>
-          <div className="text-sm font-bold header" style={styles.title}>
-            Confirm assignment
-          </div>
-
-          <div className="mt-2 text-sm" style={styles.sub}>
-            {selectedShipment && selectedDriver ? (
-              <>
-                Assign{" "}
-                <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>
-                  {selectedShipment.trackingId}
-                </span>{" "}
-                to{" "}
-                <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>
-                  {selectedDriver.driverName}
-                </span>{" "}
-                ({VEHICLE_TYPE_LABELS[selectedDriver.vehicleType]}).
-              </>
-            ) : (
-              <>Select a shipment and a driver to continue.</>
-            )}
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button
-              disabled={!canAssign}
-              onClick={assign}
-              className="px-4 py-2 rounded-lg border text-sm font-semibold transition"
+          {/* ── COL 3: Confirm Assignment ── */}
+          <div
+            className="flex flex-col rounded-2xl border overflow-hidden w-72 shrink-0"
+            style={{
+              backgroundColor: "var(--bg-secondary)",
+              borderColor: "var(--border-medium)",
+            }}
+          >
+            <div
+              className="shrink-0 px-5 py-4 border-b"
               style={{
-                opacity: !canAssign ? 0.6 : 1,
-                backgroundColor: "rgba(46, 196, 182, 0.12)",
-                borderColor: "rgba(46, 196, 182, 0.30)",
-                color: "var(--accent-teal)",
-              }}
-            >
-              {assigning ? "Assigning..." : "Confirm assignment"}
-            </button>
-
-            <button
-              disabled={assigning}
-              onClick={clearSelection}
-              className="px-4 py-2 rounded-lg border text-sm font-semibold transition hover:opacity-90"
-              style={{
-                opacity: assigning ? 0.6 : 1,
-                backgroundColor: "var(--bg-secondary)",
                 borderColor: "var(--border-medium)",
-                color: "var(--text-primary)",
+                backgroundColor: "var(--bg-tertiary)",
               }}
             >
-              Clear
-            </button>
+              <div className="flex items-center gap-2">
+                <Zap
+                  className="h-4 w-4"
+                  style={{ color: "var(--accent-teal)" }}
+                />
+                <span
+                  className="text-sm font-bold header"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  Confirm
+                </span>
+              </div>
+              <p
+                className="text-xs mt-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Review and dispatch
+              </p>
+            </div>
+
+            <div className="flex-1 p-4 flex flex-col gap-3">
+              {/* Shipment summary card */}
+              <div
+                className="rounded-xl border p-3"
+                style={{
+                  backgroundColor: selectedShipment
+                    ? "rgba(46,196,182,0.06)"
+                    : "var(--bg-tertiary)",
+                  borderColor: selectedShipment
+                    ? "rgba(46,196,182,0.25)"
+                    : "var(--border-medium)",
+                  transition: "all 0.2s",
+                }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Package
+                    className="h-3.5 w-3.5"
+                    style={{
+                      color: selectedShipment
+                        ? "var(--accent-teal)"
+                        : "var(--text-secondary)",
+                    }}
+                  />
+                  <span
+                    className="text-xs font-bold uppercase tracking-wide"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Shipment
+                  </span>
+                </div>
+                {selectedShipment ? (
+                  <>
+                    <div
+                      className="text-sm font-bold"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      {selectedShipment.trackingId}
+                    </div>
+                    <div
+                      className="text-xs mt-1 space-y-0.5"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        <span className="truncate">
+                          {selectedShipment.pickupLocation}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <ArrowRight className="h-3 w-3 shrink-0" />
+                        <span className="truncate">
+                          {selectedShipment.destinationLocation}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div
+                    className="text-xs"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Not selected yet
+                  </div>
+                )}
+              </div>
+
+              {/* Arrow connector */}
+              <div className="flex justify-center">
+                <div
+                  className="h-6 w-6 rounded-full flex items-center justify-center"
+                  style={{
+                    backgroundColor: canAssign
+                      ? "rgba(46,196,182,0.12)"
+                      : "var(--bg-tertiary)",
+                    border: "1px solid var(--border-medium)",
+                  }}
+                >
+                  <ArrowRight
+                    className="h-3.5 w-3.5 rotate-90"
+                    style={{
+                      color: canAssign
+                        ? "var(--accent-teal)"
+                        : "var(--text-secondary)",
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Driver summary card */}
+              <div
+                className="rounded-xl border p-3"
+                style={{
+                  backgroundColor: selectedDriver
+                    ? "rgba(46,196,182,0.06)"
+                    : "var(--bg-tertiary)",
+                  borderColor: selectedDriver
+                    ? "rgba(46,196,182,0.25)"
+                    : "var(--border-medium)",
+                  transition: "all 0.2s",
+                }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Users
+                    className="h-3.5 w-3.5"
+                    style={{
+                      color: selectedDriver
+                        ? "var(--accent-teal)"
+                        : "var(--text-secondary)",
+                    }}
+                  />
+                  <span
+                    className="text-xs font-bold uppercase tracking-wide"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Driver
+                  </span>
+                </div>
+                {selectedDriver ? (
+                  <>
+                    <div
+                      className="text-sm font-bold"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      {selectedDriver.driverName}
+                    </div>
+                    <div
+                      className="text-xs mt-1"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      {VEHICLE_TYPE_LABELS[selectedDriver.vehicleType]} ·{" "}
+                      {selectedDriver.plateNumber}
+                    </div>
+                  </>
+                ) : (
+                  <div
+                    className="text-xs"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Not selected yet
+                  </div>
+                )}
+              </div>
+
+              {/* Spacer */}
+              <div className="flex-1" />
+
+              {/* Action buttons */}
+              <div className="space-y-2">
+                <button
+                  onClick={assign}
+                  disabled={!canAssign}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    backgroundColor: canAssign
+                      ? "rgba(46,196,182,0.15)"
+                      : "var(--bg-tertiary)",
+                    border: canAssign
+                      ? "1px solid rgba(46,196,182,0.35)"
+                      : "1px solid var(--border-medium)",
+                    color: canAssign
+                      ? "var(--accent-teal)"
+                      : "var(--text-secondary)",
+                  }}
+                >
+                  {assigning ? (
+                    <>
+                      <RefreshCcw className="h-4 w-4 animate-spin" />
+                      Assigning…
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4" />
+                      Dispatch Now
+                    </>
+                  )}
+                </button>
+
+                {(selectedShipment || selectedDriver) && (
+                  <button
+                    onClick={() => {
+                      setSelectedShipmentId(null);
+                      setSelectedDriverId(null);
+                    }}
+                    disabled={assigning}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition hover:opacity-80 disabled:opacity-50"
+                    style={{
+                      backgroundColor: "var(--bg-tertiary)",
+                      border: "1px solid var(--border-medium)",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                    Clear selection
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

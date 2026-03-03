@@ -27,6 +27,8 @@ export type DriverApplication = {
   meansOfIdPath: string;
 
   driverName: string;
+  driverEmail: string;
+  driverPhone: string;
   driverAddress: string;
   driverFacePhotoPath: string;
   driverFullBodyPhotoPath: string;

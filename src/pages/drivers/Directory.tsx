@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "../../components/sidebar";
 import { driversApi } from "../../services/driversApi";
-import { getApiBaseUrl, getApiErrorMessage } from "../../services/apiClient";
+import { getApiErrorMessage, apiClient } from "../../services/apiClient";
 import type {
   DriverApplication,
   DriverApplicationStatus,
@@ -17,6 +17,7 @@ import {
   Bike,
   Car,
   FileText,
+  Loader2,
   Search,
   Shield,
   Truck,
@@ -45,10 +46,15 @@ function formatTimestamp(ts: string) {
   });
 }
 
-function buildFileUrl(path: string): string {
-  const base = getApiBaseUrl().replace(/\/$/, "");
-  const p = String(path || "").replace(/^\//, "");
-  return `${base}/${p}`;
+async function fetchFileUrl(r2Key: string): Promise<string> {
+  try {
+    const res = await apiClient.get("/uploads/view", {
+      params: { key: r2Key },
+    });
+    return (res.data as any)?.url ?? (res.data as any) ?? "";
+  } catch {
+    return "";
+  }
 }
 
 function vehicleIcon(type: VehicleType) {
@@ -296,26 +302,36 @@ function ApplicationModal({
 
   const DocCard = ({ label, path }: { label: string; path: string }) => {
     const missing = !path;
-    const url = missing ? "" : buildFileUrl(path);
+    const [loading, setLoading] = useState(false);
+
+    const handleClick = async (e: React.MouseEvent) => {
+      e.preventDefault();
+      if (missing || loading) return;
+      setLoading(true);
+      try {
+        const url = await fetchFileUrl(path);
+        if (url) window.open(url, "_blank", "noreferrer");
+      } finally {
+        setLoading(false);
+      }
+    };
 
     return (
-      <a
-        href={missing ? undefined : url}
-        target={missing ? undefined : "_blank"}
-        rel={missing ? undefined : "noreferrer"}
-        onClick={(e) => {
-          if (missing) e.preventDefault();
-        }}
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={missing}
         className={cn(
-          "group flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition",
-          missing ? "opacity-70 cursor-not-allowed" : "hover:opacity-95",
+          "group flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition text-left w-full",
+          missing
+            ? "opacity-70 cursor-not-allowed"
+            : "hover:opacity-95 cursor-pointer",
         )}
         style={{
           backgroundColor: "var(--bg-secondary)",
           borderColor: "var(--border-medium)",
           color: "var(--text-primary)",
         }}
-        aria-disabled={missing}
       >
         <div className="flex items-center gap-3 min-w-0">
           <div
@@ -337,7 +353,11 @@ function ApplicationModal({
           <div className="min-w-0">
             <div className="text-sm font-semibold truncate">{label}</div>
             <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
-              {missing ? "Missing file" : "Open file"}
+              {missing
+                ? "Missing file"
+                : loading
+                  ? "Loading\u2026"
+                  : "Open file"}
             </div>
           </div>
         </div>
@@ -351,6 +371,11 @@ function ApplicationModal({
               <AlertTriangle className="h-4 w-4" />
               Missing
             </span>
+          ) : loading ? (
+            <Loader2
+              className="h-4 w-4 animate-spin"
+              style={{ color: "var(--text-secondary)" }}
+            />
           ) : (
             <span
               className="text-xs inline-flex items-center gap-1"
@@ -361,7 +386,7 @@ function ApplicationModal({
             </span>
           )}
         </div>
-      </a>
+      </button>
     );
   };
 
