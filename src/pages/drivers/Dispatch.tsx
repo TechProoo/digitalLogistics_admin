@@ -26,17 +26,17 @@ function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function formatTimestamp(ts: string) {
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return ts;
-  return d.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+// function formatTimestamp(ts: string) {
+//   const d = new Date(ts);
+//   if (Number.isNaN(d.getTime())) return ts;
+//   return d.toLocaleString(undefined, {
+//     year: "numeric",
+//     month: "short",
+//     day: "2-digit",
+//     hour: "2-digit",
+//     minute: "2-digit",
+//   });
+// }
 
 function formatTimeAgo(ts: string) {
   const d = new Date(ts).getTime();

@@ -220,7 +220,7 @@ export default function Login() {
                 </span>
 
                 {/* subtle hover sheen (keeps b/w vibe) */}
-                <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-background/10 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                <span className="pointer-events-none absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-background/10 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
               </button>
             </form>
 
